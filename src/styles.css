@@ -196,6 +196,18 @@ button.danger {
   gap: 0.45rem;
 }
 
+.csv-week-field {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  width: fit-content;
+}
+
+.csv-week-help {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .sr-only-file-input {
   position: absolute;
   width: 1px;

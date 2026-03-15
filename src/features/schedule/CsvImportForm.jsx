@@ -1,10 +1,30 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { parseScheduleCsv } from '../../utils/csv';
+import { fromIsoDate, getMonday, toIsoDate } from '../../utils/date';
+
+function normalizeWeekStart(weekValue, fallbackWeekStart) {
+  if (!weekValue) {
+    return fallbackWeekStart;
+  }
+
+  const parsed = fromIsoDate(weekValue);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return fallbackWeekStart;
+  }
+
+  return toIsoDate(getMonday(parsed));
+}
 
 export default function CsvImportForm({ weekStart, employees, onImport, compact = false }) {
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [importWeekStart, setImportWeekStart] = useState(weekStart);
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    setImportWeekStart(weekStart);
+  }, [weekStart]);
 
   async function handleFileChange(event) {
     const file = event.target.files?.[0];
@@ -18,8 +38,9 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
 
     try {
       const csvText = await file.text();
-      const result = parseScheduleCsv(csvText, weekStart, employees);
-      const importStatus = await onImport(result);
+      const selectedWeekStart = normalizeWeekStart(importWeekStart, weekStart);
+      const result = parseScheduleCsv(csvText, selectedWeekStart, employees);
+      const importStatus = await onImport(result, selectedWeekStart);
       setStatus(importStatus ?? `Imported ${result.rowCount} rows and ${result.importedShifts.length} shifts.`);
     } catch (error) {
       setStatus(`Import failed: ${error.message}`);
@@ -32,6 +53,15 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
   if (compact) {
     return (
       <div className="csv-import-inline">
+        <label className="csv-week-field">
+          Week of
+          <input
+            type="date"
+            value={importWeekStart}
+            onChange={(event) => setImportWeekStart(event.target.value)}
+            disabled={isLoading}
+          />
+        </label>
         <input
           ref={inputRef}
           type="file"
@@ -57,6 +87,16 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
     <section className="panel csv-panel">
       <h3>CSV Import</h3>
       <p>Accepted columns: role, employee_name, monday through sunday.</p>
+      <label className="csv-week-field">
+        Week of
+        <input
+          type="date"
+          value={importWeekStart}
+          onChange={(event) => setImportWeekStart(event.target.value)}
+          disabled={isLoading}
+        />
+      </label>
+      <small className="csv-week-help">Imported shifts are saved to the Monday of this selected week.</small>
       <label className="file-input-label">
         <input type="file" accept=".csv,text/csv" onChange={handleFileChange} disabled={isLoading} />
         <span>{isLoading ? 'Importing...' : 'Upload CSV'}</span>

@@ -260,7 +260,7 @@ export default function App() {
     }
   }
 
-  async function handleCsvImport(result) {
+  async function handleCsvImport(result, importWeekStart = weekStart) {
     if (!isSupabaseMode || !session || !supabase) {
       setEmployees((previous) => [...previous, ...result.importedEmployees]);
       setShifts((previous) => [...previous, ...result.importedShifts]);
@@ -277,7 +277,7 @@ export default function App() {
         return 'No shifts imported. CSV employee_name values must match employees in your team.';
       }
 
-      const insertedCount = await insertCsvShifts(supabase, validShifts, weekStart);
+      const insertedCount = await insertCsvShifts(supabase, validShifts, importWeekStart);
       await loadSupabaseData();
 
       const summary =
