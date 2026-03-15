@@ -25,8 +25,6 @@ export default function DashboardStats({
     return sum + getShiftHours(shift.startTime, shift.endTime);
   }, 0);
 
-  const pendingCount = swapRequests.filter((request) => request.status === 'pending').length;
-
   const stats = [
     {
       label: 'Total Shifts',
@@ -35,16 +33,23 @@ export default function DashboardStats({
     {
       label: 'Total Hours',
       value: `${totalHours.toFixed(1)}h`
-    },
-    {
-      label: 'Pending Swaps',
-      value: pendingCount
-    },
-    {
-      label: 'Roster Size',
-      value: employees.length
     }
   ];
+
+  if (role === 'manager') {
+    const pendingCount = swapRequests.filter((request) => request.status === 'pending').length;
+
+    stats.push(
+      {
+        label: 'Pending Swaps',
+        value: pendingCount
+      },
+      {
+        label: 'Roster Size',
+        value: employees.length
+      }
+    );
+  }
 
   return (
     <section className="stats-grid" aria-label="Dashboard stats">
