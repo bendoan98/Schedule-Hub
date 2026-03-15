@@ -1136,7 +1136,7 @@ export default function App() {
                 <span>Full Name</span>
                 <div className="auth-input-wrap">
                   <span className="auth-input-icon" aria-hidden="true">
-                    ◯
+                    👤
                   </span>
                   <input
                     type="text"
@@ -1154,7 +1154,7 @@ export default function App() {
               <span>Email</span>
               <div className="auth-input-wrap">
                 <span className="auth-input-icon" aria-hidden="true">
-                  @
+                  📨
                 </span>
                 <input
                   type="email"
@@ -1171,7 +1171,7 @@ export default function App() {
               <span>Password</span>
               <div className="auth-input-wrap">
                 <span className="auth-input-icon" aria-hidden="true">
-                  #
+                  🔒
                 </span>
                 <input
                   type={showPassword ? 'text' : 'password'}
