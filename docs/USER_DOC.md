@@ -2,8 +2,8 @@
 
 ## Overview
 Schedule Hub helps teams manage weekly schedules with role-based access:
-- employees view schedules and request swaps
-- managers import schedules, manage departments, and approve requests
+- employees view schedules and request shift trades with same-department teammates
+- managers import schedules, manage departments, and finalize schedule requests
 
 ## Account and Team Setup
 1. Sign up with `Full Name`, `Email`, and `Password`.
@@ -15,7 +15,8 @@ Schedule Hub helps teams manage weekly schedules with role-based access:
 ## Roles
 ### Employee
 - Can view their own schedule and coworkers in the same department.
-- Can create schedule/swap requests for their own shifts.
+- Can click a same-department teammate's shift to request a trade.
+- Can accept/deny incoming trade requests addressed to them.
 - Cannot edit shifts directly.
 
 ### Manager
@@ -24,7 +25,7 @@ Schedule Hub helps teams manage weekly schedules with role-based access:
 - Can import schedules via CSV.
 - Can add/rename/delete departments.
 - Can update team member departments (including their own).
-- Can approve/deny schedule requests.
+- Can final-approve/final-deny requests after teammate review.
 
 ## Schedule Page
 - Weekly Monday-Sunday calendar.
@@ -37,9 +38,19 @@ Schedule Hub helps teams manage weekly schedules with role-based access:
 
 ## Manager Page
 - CSV import with selectable target week (`Week of`).
-- Schedule request queue.
+- Schedule request queue (`PENDING PEER`, `PENDING MANAGER`, `APPROVED`, `DENIED`).
 - Department manager panel.
 - Team roster panel for department assignment.
+
+## Shift Trade Flow
+1. Employee clicks a same-department teammate's shift.
+2. Employee selects one of their own shifts to offer and sends request.
+3. Target teammate accepts or denies:
+   - Accept -> request moves to manager review.
+   - Deny -> request closes as denied.
+4. Manager final-approves or final-denies:
+   - Final approve -> the two shifts are swapped.
+   - Final deny -> no shift changes are applied.
 
 ## Notifications
 - Notification bell shows unread count.
@@ -50,8 +61,10 @@ Schedule Hub helps teams manage weekly schedules with role-based access:
 Current notification triggers:
 - CSV import -> `New Schedule Available` to employees.
 - Department update/rename/delete -> affected employees only.
-- Schedule request submission -> managers.
-- Schedule request approval/denial -> addressed employee(s).
+- Shift trade request submission -> targeted teammate.
+- Teammate accepts request -> managers for final review.
+- Teammate denies request -> requester.
+- Manager final approval/denial -> both involved employees.
 
 ## CSV Import Format
 Required columns:

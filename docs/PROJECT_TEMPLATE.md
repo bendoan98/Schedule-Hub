@@ -8,7 +8,7 @@ This repository now includes a full starter template based on `README.md`:
 - Weekly calendar grid with role-specific behavior
 - CSV import parser and uploader
 - Shift add/edit/delete modal
-- Shift swap workflow UI (request + approval queue)
+- Staged shift trade workflow UI (peer decision, then manager final approval)
 - Notification bell with unread count
 - Message board (announcements + comments)
 - Calendar export (.ics + Google Calendar open link)

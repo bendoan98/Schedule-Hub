@@ -113,6 +113,8 @@ Run SQL in this order:
 2. `supabase/rls.sql`
 3. `supabase/seed.sql` (optional)
 
+If you pull new schema/RLS changes, re-run `schema.sql` then `rls.sql` to apply table/policy updates.
+
 Then:
 1. Start app and sign up/sign in.
 2. Create team or join with invite code.
@@ -127,6 +129,13 @@ Core tables:
 - `notifications`
 - `message_posts`
 
+`swap_requests` key fields:
+- `shift_id` (target teammate shift)
+- `offered_shift_id` (requester shift offered for trade)
+- `requested_by`
+- `target_employee_id`
+- `status` in `pending_target | pending_manager | approved | denied`
+
 Notable functions/triggers:
 - `handle_new_user` trigger creates employee profile.
 - `create_team_for_current_user(text)`
@@ -136,8 +145,14 @@ Notable functions/triggers:
 - Team-scoped access via `current_team_id()`.
 - Managers can manage team data.
 - Employees can read own profile and same-department peers.
-- Employees can only request swaps for their own shifts.
+- Employees can create trade requests only when:
+  - `offered_shift_id` belongs to themselves
+  - `shift_id` belongs to target employee
+  - both users are in the same team and department
+- Target employee can update `pending_target` requests to `pending_manager` or `denied`.
+- Manager can update `pending_manager` requests to `approved` or `denied`.
 - Notifications are per-recipient and read state is per-user.
+- Notification inserts are allowed for managers and same-department peer targeting.
 - `employees.department_id` references `departments.id` with `ON DELETE SET NULL`.
 
 ## Project Structure
