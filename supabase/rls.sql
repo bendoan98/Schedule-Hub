@@ -85,6 +85,7 @@ drop policy if exists "swap_requests_update_manager_only" on public.swap_request
 drop policy if exists "notifications_select_team_scope" on public.notifications;
 drop policy if exists "notifications_modify_manager_same_team" on public.notifications;
 drop policy if exists "notifications_insert_team_member_targeted" on public.notifications;
+drop policy if exists "notifications_update_target_same_team" on public.notifications;
 drop policy if exists "notifications_select_target_or_all" on public.notifications;
 drop policy if exists "notifications_modify_manager_only" on public.notifications;
 
@@ -324,6 +325,26 @@ with check (
         public.is_manager()
         or target.role = 'manager'
       )
+  )
+);
+
+create policy "notifications_update_target_same_team"
+on public.notifications
+for update
+using (
+  auth.uid() is not null
+  and team_id = public.current_team_id()
+  and (
+    target_employee_id = auth.uid()
+    or target_employee_id is null
+  )
+)
+with check (
+  auth.uid() is not null
+  and team_id = public.current_team_id()
+  and (
+    target_employee_id = auth.uid()
+    or target_employee_id is null
   )
 );
 
