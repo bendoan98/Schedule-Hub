@@ -43,7 +43,7 @@ import {
   normalizeDepartmentName,
   toStoredDepartment
 } from './utils/department';
-import { getMonday, toIsoDate } from './utils/date';
+import { formatShiftDateLabel, getMonday, toIsoDate } from './utils/date';
 import { newId } from './utils/id';
 
 const ROLES = ['manager', 'employee'];
@@ -308,10 +308,10 @@ export default function App() {
 
   function toShiftSummary(shift) {
     if (!shift) {
-      return 'Day ? (--:----:--)';
+      return 'Unknown shift (--:----:--)';
     }
 
-    return `Day ${shift.day + 1} (${shift.startTime}-${shift.endTime})`;
+    return `${formatShiftDateLabel(shift.weekStart, shift.day)} (${shift.startTime}-${shift.endTime})`;
   }
 
   function toMinutes(timeValue) {

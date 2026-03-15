@@ -1,9 +1,12 @@
+import { formatShiftDateLabel } from '../../utils/date';
+
 function formatShiftLabel(shift, employeeName) {
   if (!shift) {
     return 'Unknown shift';
   }
 
-  return `${employeeName} | Day ${shift.day + 1} | ${shift.startTime}-${shift.endTime}`;
+  const dateLabel = formatShiftDateLabel(shift.weekStart, shift.day);
+  return `${employeeName} | ${dateLabel} | ${shift.startTime}-${shift.endTime}`;
 }
 
 function getStatusLabel(status) {

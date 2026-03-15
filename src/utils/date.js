@@ -34,3 +34,12 @@ export function getShiftDate(weekStartIso, day) {
   const weekStart = fromIsoDate(weekStartIso);
   return addDays(weekStart, day);
 }
+
+export function formatShiftDateLabel(weekStartIso, day) {
+  if (!weekStartIso || !Number.isInteger(Number(day))) {
+    return 'Unknown date';
+  }
+
+  const shiftDate = getShiftDate(weekStartIso, Number(day));
+  return format(shiftDate, 'EEE, MMM d');
+}

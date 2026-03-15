@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { formatShiftDateLabel } from '../../utils/date';
 
 function formatShiftLabel(shift) {
-  return `Day ${shift.day + 1} | ${shift.startTime}-${shift.endTime}`;
+  const dateLabel = formatShiftDateLabel(shift.weekStart, shift.day);
+  return `${dateLabel} | ${shift.startTime}-${shift.endTime}`;
 }
 
 export default function SwapTradeRequestModal({

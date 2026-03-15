@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { fromIsoDate, getMonday, getShiftDate, getWeekHeaders, toIsoDate } from './date';
+import {
+  formatShiftDateLabel,
+  fromIsoDate,
+  getMonday,
+  getShiftDate,
+  getWeekHeaders,
+  toIsoDate
+} from './date';
 
 describe('date utils', () => {
   it('returns monday for any date in the same week', () => {
@@ -22,5 +29,11 @@ describe('date utils', () => {
 
     const shiftDate = getShiftDate('2026-03-09', 2);
     expect(toIsoDate(shiftDate)).toBe('2026-03-11');
+  });
+
+  it('formats shift dates as calendar labels', () => {
+    expect(formatShiftDateLabel('2026-03-09', 0)).toBe('Mon, Mar 9');
+    expect(formatShiftDateLabel('2026-03-09', 6)).toBe('Sun, Mar 15');
+    expect(formatShiftDateLabel('', 3)).toBe('Unknown date');
   });
 });
