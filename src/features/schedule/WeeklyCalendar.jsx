@@ -114,7 +114,9 @@ export default function WeeklyCalendar({
                     return (
                       <article
                         key={shift.id}
-                        className={`shift-chip color-${employee.colorIndex % 8} ${pending ? 'pending' : ''}`}
+                        className={`shift-chip color-${employee.colorIndex % 8} ${
+                          canOpenShift ? 'interactive' : ''
+                        } ${pending ? 'pending' : ''}`}
                         onClick={canOpenShift ? () => onShiftClick(shift) : undefined}
                         onKeyDown={
                           canOpenShift

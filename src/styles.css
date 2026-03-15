@@ -391,6 +391,18 @@ button.danger {
   padding: 0.45rem;
   display: grid;
   gap: 0.15rem;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.shift-chip.interactive {
+  cursor: pointer;
+}
+
+.shift-chip.interactive:hover,
+.shift-chip.interactive:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, currentColor 80%, #ffffff 20%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
 }
 
 .shift-chip p {
