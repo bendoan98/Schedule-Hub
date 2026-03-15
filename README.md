@@ -72,7 +72,7 @@ Three core tables in Supabase:
 | `name` | text | Full name |
 | `email` | text | Used for Supabase Auth |
 | `role` | text | `manager` or `employee` |
-| `department` | text | e.g. FLOOR, BAR, OPS |
+| `department` | text | e.g. KITCHEN, DRIVER |
 | `color_index` | integer | UI color assignment (0–7) |
 
 **`shifts`**
