@@ -154,7 +154,17 @@ describe('supabaseData', () => {
         },
         message_posts: {
           selectResult: {
-            data: [{ id: 'm1', team_id: 't1', author_id: 'e1', kind: 'manager', message: 'Hello', created_at: '2026-03-01' }],
+            data: [
+              {
+                id: 'm1',
+                team_id: 't1',
+                author_id: 'e1',
+                author_name: 'Alex',
+                kind: 'manager',
+                message: 'Hello',
+                created_at: '2026-03-01'
+              }
+            ],
             error: null
           }
         }
@@ -187,6 +197,7 @@ describe('supabaseData', () => {
     expect(snapshot.swapRequests[0].reason).toBe('');
     expect(snapshot.notifications[0].read).toBe(false);
     expect(snapshot.boardPosts[0].authorId).toBe('e1');
+    expect(snapshot.boardPosts[0].authorName).toBe('Alex');
   });
 
   it('fetchAppData throws first Supabase error', async () => {
@@ -404,6 +415,7 @@ describe('supabaseData', () => {
     expect(client.handlers.get('message_posts').insert).toHaveBeenCalledWith({
       team_id: 't1',
       author_id: 'e1',
+      author_name: 'Unknown Employee',
       kind: 'manager',
       message: 'note'
     });

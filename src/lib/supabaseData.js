@@ -77,6 +77,7 @@ function mapMessagePost(row) {
     id: row.id,
     teamId: row.team_id,
     authorId: row.author_id,
+    authorName: row.author_name ?? '',
     kind: row.kind,
     message: row.message,
     createdAt: row.created_at
@@ -146,7 +147,7 @@ export async function fetchAppData(client) {
       .order('created_at', { ascending: false }),
     client
       .from('message_posts')
-      .select('id, team_id, author_id, kind, message, created_at')
+      .select('id, team_id, author_id, author_name, kind, message, created_at')
       .order('created_at', { ascending: false })
   ]);
 
@@ -453,6 +454,7 @@ export async function insertMessagePost(client, post) {
   const { error } = await client.from('message_posts').insert({
     team_id: post.teamId,
     author_id: post.authorId,
+    author_name: post.authorName ?? 'Unknown Employee',
     kind: post.kind,
     message: post.message
   });

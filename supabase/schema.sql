@@ -359,18 +359,34 @@ create table if not exists public.message_posts (
   id uuid primary key default gen_random_uuid(),
   team_id uuid references public.teams (id) on delete cascade,
   author_id uuid not null references public.employees (id) on delete cascade,
+  author_name text not null default '',
   kind text not null default 'comment' check (kind in ('announcement', 'comment')),
   message text not null,
   created_at timestamptz not null default timezone('utc', now())
 );
 
 alter table public.message_posts
-  add column if not exists team_id uuid references public.teams (id) on delete cascade;
+  add column if not exists team_id uuid references public.teams (id) on delete cascade,
+  add column if not exists author_name text default '';
 
 update public.message_posts p
 set team_id = e.team_id
 from public.employees e
 where p.team_id is null
   and p.author_id = e.id;
+
+update public.message_posts p
+set author_name = e.name
+from public.employees e
+where p.author_id = e.id
+  and nullif(trim(coalesce(p.author_name, '')), '') is null;
+
+update public.message_posts
+set author_name = 'Unknown Employee'
+where nullif(trim(coalesce(author_name, '')), '') is null;
+
+alter table public.message_posts
+  alter column author_name set default 'Unknown Employee',
+  alter column author_name set not null;
 
 create index if not exists message_posts_team_idx on public.message_posts (team_id, created_at desc);

@@ -127,9 +127,12 @@ export default function App() {
 
     return boardPosts.map((post) => ({
       ...post,
-      authorName: employeesById.get(post.authorId) ?? 'Unknown Employee'
+      authorName:
+        post.authorName ||
+        employeesById.get(post.authorId) ||
+        (post.authorId === team?.createdBy ? 'Manager' : 'Unknown Employee')
     }));
-  }, [boardPosts, employees]);
+  }, [boardPosts, employees, team?.createdBy]);
 
   const weekDate = useMemo(() => new Date(`${weekStart}T12:00:00`), [weekStart]);
 

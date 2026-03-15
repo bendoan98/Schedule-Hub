@@ -57,8 +57,8 @@ values
   ('33333333-3333-3333-3333-333333333333', 1, '07:00', '15:00', date_trunc('week', now())::date + 1)
 on conflict do nothing;
 
-insert into public.message_posts (team_id, author_id, kind, message)
+insert into public.message_posts (team_id, author_id, author_name, kind, message)
 values
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'announcement', 'Welcome to the new schedule workspace.'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'comment', 'Thanks, got it!')
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'Alex Morgan', 'announcement', 'Welcome to the new schedule workspace.'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'Jamie Chen', 'comment', 'Thanks, got it!')
 on conflict do nothing;
