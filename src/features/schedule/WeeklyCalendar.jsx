@@ -11,7 +11,6 @@ export default function WeeklyCalendar({
   swapRequests,
   onAddShift,
   onShiftClick,
-  onRequestSwap,
   currentEmployeeId,
   onPrevWeek,
   onNextWeek,
@@ -108,7 +107,7 @@ export default function WeeklyCalendar({
 
                   {cellShifts.map((shift) => {
                     const canOpenShift =
-                      role === 'manager' || (role === 'employee' && shift.employeeId !== currentEmployeeId);
+                      role === 'manager' || role === 'employee';
                     const pending = pendingShiftIds.has(shift.id);
 
                     return (

@@ -48,16 +48,13 @@ vi.mock('./features/dashboard/DashboardStats', () => ({
 }));
 
 vi.mock('./features/schedule/WeeklyCalendar', () => ({
-  default: ({ shifts, onAddShift, onShiftClick, onRequestSwap, onPrevWeek, onNextWeek, exportControl }) => (
+  default: ({ shifts, onAddShift, onShiftClick, onPrevWeek, onNextWeek, exportControl }) => (
     <section>
       <button type="button" onClick={() => onAddShift('mgr-1', 0)}>
         Trigger Add Shift
       </button>
       <button type="button" onClick={() => onShiftClick(shifts[0])}>
         Trigger Edit Shift
-      </button>
-      <button type="button" onClick={() => onRequestSwap(shifts[0])}>
-        Trigger Swap Request
       </button>
       <button type="button" onClick={onPrevWeek}>
         Trigger Previous Week
@@ -179,9 +176,6 @@ describe('App', () => {
     expect(screen.getByText('Edit Shift')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /delete/i }));
     expect(screen.getByTestId('unread-count')).toHaveTextContent('2');
-
-    fireEvent.click(screen.getByRole('button', { name: /trigger swap request/i }));
-    expect(screen.getByText(/click another teammate’s shift to request a trade/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /mark all read/i }));
     expect(screen.getByTestId('unread-count')).toHaveTextContent('0');

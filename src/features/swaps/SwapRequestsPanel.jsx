@@ -53,6 +53,7 @@ export default function SwapRequestsPanel({
           const offeredShift = shiftsById.get(request.offeredShiftId);
           const requester = employeesById.get(request.requestedBy);
           const targetEmployee = employeesById.get(request.targetEmployeeId);
+          const isTradeRequest = Boolean(request.offeredShiftId);
           const canPeerDecide =
             role === 'employee' &&
             request.status === 'pending_target' &&
@@ -69,10 +70,19 @@ export default function SwapRequestsPanel({
               <p>
                 Requester: <strong>{requester?.name ?? 'Unknown Employee'}</strong>
               </p>
-              <p>Wants: {formatShiftLabel(requestedShift, targetEmployee?.name ?? 'Unknown Employee')}</p>
-              {offeredShift ? (
-                <p>Offers: {formatShiftLabel(offeredShift, requester?.name ?? 'Unknown Employee')}</p>
-              ) : null}
+              {isTradeRequest ? (
+                <>
+                  <p>Wants: {formatShiftLabel(requestedShift, targetEmployee?.name ?? 'Unknown Employee')}</p>
+                  {offeredShift ? (
+                    <p>Offers: {formatShiftLabel(offeredShift, requester?.name ?? 'Unknown Employee')}</p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <p>Offers: {formatShiftLabel(requestedShift, requester?.name ?? 'Unknown Employee')}</p>
+                  <p>To: {targetEmployee?.name ?? 'Unknown Employee'}</p>
+                </>
+              )}
               {request.reason ? <p className="muted">Reason: {request.reason}</p> : null}
 
               {canPeerDecide ? (

@@ -9,6 +9,7 @@ import ExportButtons from './features/export/ExportButtons';
 import ManagerPage from './features/manager/ManagerPage';
 import SwapRequestsPanel from './features/swaps/SwapRequestsPanel';
 import SwapTradeRequestModal from './features/swaps/SwapTradeRequestModal';
+import SwapOfferShiftModal from './features/swaps/SwapOfferShiftModal';
 import {
   mockBoardPosts,
   mockEmployees,
@@ -66,6 +67,7 @@ export default function App() {
   const [currentEmployeeId, setCurrentEmployeeId] = useState(isSupabaseMode ? '' : 'emp-alex');
   const [editingShift, setEditingShift] = useState(null);
   const [swapTradeTargetShift, setSwapTradeTargetShift] = useState(null);
+  const [swapOfferShift, setSwapOfferShift] = useState(null);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(isSupabaseMode);
   const [dataLoading, setDataLoading] = useState(false);
@@ -127,15 +129,11 @@ export default function App() {
 
   const weekDate = useMemo(() => new Date(`${weekStart}T12:00:00`), [weekStart]);
 
-  const swapTargetEmployee = useMemo(() => {
-    if (!swapTradeTargetShift) {
-      return null;
+  const tradeableShifts = useMemo(() => {
+    if (role !== 'employee') {
+      return [];
     }
 
-    return employees.find((employee) => employee.id === swapTradeTargetShift.employeeId) ?? null;
-  }, [swapTradeTargetShift, employees]);
-
-  const tradeableShifts = useMemo(() => {
     return shifts
       .filter((shift) => shift.employeeId === currentEmployeeId && shift.weekStart === weekStart)
       .sort((left, right) => {
@@ -145,7 +143,29 @@ export default function App() {
 
         return left.startTime.localeCompare(right.startTime);
       });
-  }, [shifts, currentEmployeeId, weekStart]);
+  }, [currentEmployeeId, role, shifts, weekStart]);
+
+  const offerTargetEmployees = useMemo(() => {
+    if (role !== 'employee') {
+      return [];
+    }
+
+    const requesterDepartment = normalizeDepartmentName(currentUser?.department);
+
+    if (!requesterDepartment) {
+      return [];
+    }
+
+    return employees
+      .filter((employee) => {
+        if (employee.id === currentEmployeeId) {
+          return false;
+        }
+
+        return normalizeDepartmentName(employee.department) === requesterDepartment;
+      })
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [currentEmployeeId, currentUser?.department, employees, role]);
 
   useEffect(() => {
     if (role !== 'manager') {
@@ -364,6 +384,24 @@ export default function App() {
     });
   }
 
+  function hasOfferConflict(offeredShift, targetEmployeeId) {
+    if (!offeredShift || !targetEmployeeId) {
+      return false;
+    }
+
+    return shifts.some((existingShift) => {
+      if (existingShift.id === offeredShift.id) {
+        return false;
+      }
+
+      if (existingShift.employeeId !== targetEmployeeId) {
+        return false;
+      }
+
+      return shiftsOverlap(existingShift, offeredShift);
+    });
+  }
+
   function buildNotificationTargets(recipientIds, title, body) {
     if (!team?.id) {
       return [];
@@ -459,20 +497,28 @@ export default function App() {
       return;
     }
 
-    if (shift.employeeId === currentEmployeeId) {
+    const requesterDepartment = normalizeDepartmentName(currentUser?.department);
+
+    if (!requesterDepartment) {
+      setAppMessage('Schedule requests are only available with teammates in your department.');
       return;
     }
 
-    const requester = employees.find((employee) => employee.id === currentEmployeeId);
+    if (shift.employeeId === currentEmployeeId) {
+      setSwapTradeTargetShift(null);
+      setSwapOfferShift(shift);
+      return;
+    }
+
     const targetEmployee = employees.find((employee) => employee.id === shift.employeeId);
-    const requesterDepartment = normalizeDepartmentName(requester?.department);
     const targetDepartment = normalizeDepartmentName(targetEmployee?.department);
 
-    if (!requesterDepartment || requesterDepartment !== targetDepartment) {
-      setAppMessage('Shift swaps are only available with teammates in your department.');
+    if (!targetEmployee || requesterDepartment !== targetDepartment) {
+      setAppMessage('Schedule requests are only available with teammates in your department.');
       return;
     }
 
+    setSwapOfferShift(null);
     setSwapTradeTargetShift(shift);
   }
 
@@ -532,21 +578,26 @@ export default function App() {
     addLocalNotification('Shift Deleted', 'A shift was removed from the schedule.');
   }
 
-  function handleRequestSwap() {
-    // Shift trade requests now start from clicking another employee's shift card.
-    setAppMessage('Click another teammate’s shift to request a trade.');
-  }
-
   async function handleSubmitSwapTrade({ offeredShiftId, reason }) {
-    if (!swapTradeTargetShift) {
+    const targetShift = swapTradeTargetShift;
+
+    if (!targetShift) {
       return;
     }
 
-    const targetShift = swapTradeTargetShift;
     const offeredShift = shifts.find((shift) => shift.id === offeredShiftId);
 
-    if (!offeredShift) {
-      setAppMessage('Select one of your shifts to trade.');
+    if (!offeredShift || offeredShift.employeeId !== currentEmployeeId) {
+      setAppMessage('Select one of your shifts to offer for this trade.');
+      return;
+    }
+
+    const targetEmployee = employees.find((employee) => employee.id === targetShift.employeeId);
+    const requesterDepartment = normalizeDepartmentName(currentUser?.department);
+    const targetDepartment = normalizeDepartmentName(targetEmployee?.department);
+
+    if (!requesterDepartment || requesterDepartment !== targetDepartment) {
+      setAppMessage('Schedule requests are only available with teammates in your department.');
       return;
     }
 
@@ -576,7 +627,7 @@ export default function App() {
           supabase,
           buildNotificationTargets(
             [targetShift.employeeId],
-            'Swap Request Received',
+            'Schedule Request Received',
             `${currentUser?.name ?? 'A teammate'} requested to trade ${toShiftSummary(
               offeredShift
             )} for your ${toShiftSummary(targetShift)}${trimmedReason ? `: ${trimmedReason}` : '.'}`
@@ -584,7 +635,7 @@ export default function App() {
         );
 
         await loadSupabaseData();
-        setAppMessage('Swap request sent to teammate.');
+        setAppMessage('Schedule request sent to teammate.');
       } catch (error) {
         setAppMessage(error.message);
       } finally {
@@ -610,45 +661,156 @@ export default function App() {
 
     setSwapTradeTargetShift(null);
     addLocalNotification(
-      'Swap Request Sent',
-      `${currentUser?.name ?? 'Employee'} requested to trade with ${swapTargetEmployee?.name ?? 'teammate'}.`
+      'Schedule Request Sent',
+      `${currentUser?.name ?? 'Employee'} requested to trade with ${targetEmployee?.name ?? 'teammate'}.`
+    );
+  }
+
+  async function handleSubmitSwapOffer({ targetEmployeeId, reason }) {
+    if (!swapOfferShift) {
+      return;
+    }
+
+    const offeredShift = swapOfferShift;
+    const targetEmployee = employees.find((employee) => employee.id === targetEmployeeId);
+    const requesterDepartment = normalizeDepartmentName(currentUser?.department);
+    const targetDepartment = normalizeDepartmentName(targetEmployee?.department);
+
+    if (!targetEmployee || targetEmployeeId === currentEmployeeId) {
+      setAppMessage('Select a teammate to offer this shift.');
+      return;
+    }
+
+    if (!requesterDepartment || requesterDepartment !== targetDepartment) {
+      setAppMessage('Schedule requests are only available with teammates in your department.');
+      return;
+    }
+
+    if (hasOfferConflict(offeredShift, targetEmployeeId)) {
+      setSwapOfferShift(null);
+      setAppMessage('Schedule request denied automatically due to a shift conflict.');
+      return;
+    }
+
+    const trimmedReason = reason.trim();
+
+    if (isSupabaseMode && session && supabase) {
+      try {
+        if (!currentEmployeeId) {
+          throw new Error('No employee profile selected for this user.');
+        }
+
+        await createSwapRequest(supabase, {
+          shiftId: offeredShift.id,
+          offeredShiftId: null,
+          requestedBy: currentEmployeeId,
+          targetEmployeeId,
+          reason: trimmedReason
+        });
+
+        await insertNotifications(
+          supabase,
+          buildNotificationTargets(
+            [targetEmployeeId],
+            'Schedule Request Received',
+            `${currentUser?.name ?? 'A teammate'} offered you ${toShiftSummary(offeredShift)}${
+              trimmedReason ? `: ${trimmedReason}` : '.'
+            }`
+          )
+        );
+
+        await loadSupabaseData();
+        setAppMessage('Schedule request sent to teammate.');
+      } catch (error) {
+        setAppMessage(error.message);
+      } finally {
+        setSwapOfferShift(null);
+      }
+
+      return;
+    }
+
+    setSwapRequests((previous) => [
+      {
+        id: newId(),
+        shiftId: offeredShift.id,
+        offeredShiftId: null,
+        requestedBy: currentEmployeeId,
+        targetEmployeeId,
+        reason: trimmedReason,
+        status: 'pending_target',
+        createdAt: new Date().toISOString()
+      },
+      ...previous
+    ]);
+
+    setSwapOfferShift(null);
+    addLocalNotification(
+      'Schedule Request Sent',
+      `${currentUser?.name ?? 'Employee'} offered a shift to ${targetEmployee?.name ?? 'teammate'}.`
     );
   }
 
   async function handleSwapDecision(requestId, status) {
     const request = swapRequests.find((item) => item.id === requestId);
-    const requestedShift = request ? shifts.find((shift) => shift.id === request.shiftId) : null;
-    const offeredShift = request ? shifts.find((shift) => shift.id === request.offeredShiftId) : null;
-    const autoDeniedByConflict =
-      (status === 'pending_manager' || status === 'approved') &&
-      hasTradeConflict(requestedShift, offeredShift);
-    const resolvedStatus = autoDeniedByConflict ? 'denied' : status;
 
     if (!request) {
       return;
     }
 
+    const requestedShift = shifts.find((shift) => shift.id === request.shiftId);
+    const offeredShift = request.offeredShiftId
+      ? shifts.find((shift) => shift.id === request.offeredShiftId)
+      : null;
+    const isTradeRequest = Boolean(request.offeredShiftId);
+    const autoDeniedByConflict =
+      (status === 'pending_manager' || status === 'approved') &&
+      (isTradeRequest
+        ? hasTradeConflict(requestedShift, offeredShift)
+        : hasOfferConflict(requestedShift, request.targetEmployeeId));
+    const resolvedStatus = autoDeniedByConflict ? 'denied' : status;
+
     if (isSupabaseMode && session && supabase) {
       try {
-        if (resolvedStatus === 'approved' && requestedShift && offeredShift) {
-          await upsertShift(
-            supabase,
-            {
-              ...requestedShift,
-              employeeId: offeredShift.employeeId,
-              isNew: false
-            },
-            requestedShift.weekStart
-          );
-          await upsertShift(
-            supabase,
-            {
-              ...offeredShift,
-              employeeId: requestedShift.employeeId,
-              isNew: false
-            },
-            offeredShift.weekStart
-          );
+        if (resolvedStatus === 'approved') {
+          if (isTradeRequest) {
+            if (!requestedShift || !offeredShift) {
+              throw new Error('Requested trade shifts are no longer available.');
+            }
+
+            await upsertShift(
+              supabase,
+              {
+                ...requestedShift,
+                employeeId: offeredShift.employeeId,
+                isNew: false
+              },
+              requestedShift.weekStart
+            );
+            await upsertShift(
+              supabase,
+              {
+                ...offeredShift,
+                employeeId: requestedShift.employeeId,
+                isNew: false
+              },
+              offeredShift.weekStart
+            );
+          } else {
+            if (!requestedShift || !request.targetEmployeeId) {
+              throw new Error('Requested shift is no longer available.');
+            }
+
+            await upsertShift(
+              supabase,
+              {
+                ...requestedShift,
+                employeeId: request.targetEmployeeId,
+                isNew: false
+              },
+              requestedShift.weekStart
+            );
+          }
         }
 
         await setSwapRequestStatus(supabase, requestId, resolvedStatus);
@@ -659,10 +821,14 @@ export default function App() {
           if (autoDeniedByConflict) {
             notificationsToInsert = buildNotificationTargets(
               [request.requestedBy, request.targetEmployeeId],
-              'Swap Request Denied',
-              `Trade request for ${toShiftSummary(offeredShift)} and ${toShiftSummary(
-                requestedShift
-              )} was denied automatically due to a schedule conflict.`
+              'Schedule Request Denied',
+              isTradeRequest
+                ? `Trade request for ${toShiftSummary(offeredShift)} and ${toShiftSummary(
+                    requestedShift
+                  )} was denied automatically due to a schedule conflict.`
+                : `Schedule request for ${toShiftSummary(
+                    requestedShift
+                  )} was denied automatically due to a schedule conflict.`
             );
           } else if (resolvedStatus === 'pending_manager') {
             const managerIds = employees
@@ -671,27 +837,35 @@ export default function App() {
 
             notificationsToInsert = buildNotificationTargets(
               managerIds,
-              'Swap Request Awaiting Approval',
-              `${currentUser?.name ?? 'A teammate'} accepted a trade request between ${toShiftSummary(
-                offeredShift
-              )} and ${toShiftSummary(requestedShift)}. Final manager approval is required.`
+              'Schedule Request Awaiting Approval',
+              isTradeRequest
+                ? `${currentUser?.name ?? 'A teammate'} accepted a trade request between ${toShiftSummary(
+                    offeredShift
+                  )} and ${toShiftSummary(requestedShift)}. Final manager approval is required.`
+                : `${currentUser?.name ?? 'A teammate'} accepted a schedule request for ${toShiftSummary(
+                    requestedShift
+                  )}. Final manager approval is required.`
             );
           } else if (resolvedStatus === 'denied' && currentEmployeeId === request.targetEmployeeId) {
             notificationsToInsert = buildNotificationTargets(
               [request.requestedBy],
-              'Swap Request Denied',
-              `Your teammate denied the request to trade ${toShiftSummary(offeredShift)} for ${toShiftSummary(
-                requestedShift
-              )}.`
+              'Schedule Request Denied',
+              isTradeRequest
+                ? `Your teammate denied the request to trade ${toShiftSummary(
+                    offeredShift
+                  )} for ${toShiftSummary(requestedShift)}.`
+                : `Your teammate denied the request for ${toShiftSummary(requestedShift)}.`
             );
           } else if (resolvedStatus === 'approved' || resolvedStatus === 'denied') {
             const finalWord = resolvedStatus === 'approved' ? 'approved' : 'denied';
             notificationsToInsert = buildNotificationTargets(
               [request.requestedBy, request.targetEmployeeId],
-              `Swap Request ${resolvedStatus === 'approved' ? 'Approved' : 'Denied'}`,
-              `Manager ${finalWord} the trade request for ${toShiftSummary(offeredShift)} and ${toShiftSummary(
-                requestedShift
-              )}.`
+              `Schedule Request ${resolvedStatus === 'approved' ? 'Approved' : 'Denied'}`,
+              isTradeRequest
+                ? `Manager ${finalWord} the trade request for ${toShiftSummary(
+                    offeredShift
+                  )} and ${toShiftSummary(requestedShift)}.`
+                : `Manager ${finalWord} the schedule request for ${toShiftSummary(requestedShift)}.`
             );
           }
 
@@ -705,11 +879,11 @@ export default function App() {
         if (autoDeniedByConflict) {
           setAppMessage('Schedule request denied automatically due to a shift conflict.');
         } else if (resolvedStatus === 'pending_manager') {
-          setAppMessage('Swap request accepted and sent to manager for final approval.');
+          setAppMessage('Schedule request accepted and sent to manager for final approval.');
         } else if (resolvedStatus === 'approved') {
-          setAppMessage('Swap request approved and shifts updated.');
+          setAppMessage('Schedule request approved and shifts updated.');
         } else {
-          setAppMessage('Swap request denied.');
+          setAppMessage('Schedule request denied.');
         }
       } catch (error) {
         setAppMessage(error.message);
@@ -718,20 +892,31 @@ export default function App() {
       return;
     }
 
-    if (resolvedStatus === 'approved' && requestedShift && offeredShift) {
+    if (resolvedStatus === 'approved' && requestedShift) {
       setShifts((previous) =>
         previous.map((shift) => {
-          if (shift.id === requestedShift.id) {
-            return {
-              ...shift,
-              employeeId: offeredShift.employeeId
-            };
+          if (isTradeRequest && offeredShift) {
+            if (shift.id === requestedShift.id) {
+              return {
+                ...shift,
+                employeeId: offeredShift.employeeId
+              };
+            }
+
+            if (shift.id === offeredShift.id) {
+              return {
+                ...shift,
+                employeeId: requestedShift.employeeId
+              };
+            }
+
+            return shift;
           }
 
-          if (shift.id === offeredShift.id) {
+          if (shift.id === requestedShift.id && request.targetEmployeeId) {
             return {
               ...shift,
-              employeeId: requestedShift.employeeId
+              employeeId: request.targetEmployeeId
             };
           }
 
@@ -754,13 +939,23 @@ export default function App() {
     );
 
     if (autoDeniedByConflict) {
-      addLocalNotification('Swap Request Denied', 'Request was denied automatically due to a shift conflict.');
+      addLocalNotification('Schedule Request Denied', 'Request was denied automatically due to a shift conflict.');
     } else if (resolvedStatus === 'pending_manager') {
-      addLocalNotification('Swap Request Escalated', 'Teammate accepted the trade. Waiting for manager approval.');
+      addLocalNotification(
+        'Schedule Request Escalated',
+        isTradeRequest
+          ? 'Teammate accepted the trade. Waiting for manager approval.'
+          : 'Teammate accepted the shift offer. Waiting for manager approval.'
+      );
     } else if (resolvedStatus === 'approved') {
-      addLocalNotification('Swap Request Approved', 'Manager approved the trade and shifts were swapped.');
+      addLocalNotification(
+        'Schedule Request Approved',
+        isTradeRequest
+          ? 'Manager approved the trade and shifts were swapped.'
+          : 'Manager approved the request and the shift was reassigned.'
+      );
     } else {
-      addLocalNotification('Swap Request Denied', 'A swap request was denied.');
+      addLocalNotification('Schedule Request Denied', 'A schedule request was denied.');
     }
   }
 
@@ -768,6 +963,7 @@ export default function App() {
     const request = swapRequests.find((item) => item.id === requestId);
     const requestedShift = request ? shifts.find((shift) => shift.id === request.shiftId) : null;
     const offeredShift = request ? shifts.find((shift) => shift.id === request.offeredShiftId) : null;
+    const isTradeRequest = Boolean(request?.offeredShiftId);
 
     if (!request || request.requestedBy !== currentEmployeeId || !request.status?.startsWith('pending')) {
       return;
@@ -789,10 +985,14 @@ export default function App() {
             supabase,
             buildNotificationTargets(
               [request.targetEmployeeId, ...managerIds],
-              'Swap Request Cancelled',
-              `${currentUser?.name ?? 'A teammate'} cancelled the trade request for ${toShiftSummary(
-                offeredShift
-              )} and ${toShiftSummary(requestedShift)}.`
+              'Schedule Request Cancelled',
+              isTradeRequest
+                ? `${currentUser?.name ?? 'A teammate'} cancelled the trade request for ${toShiftSummary(
+                    offeredShift
+                  )} and ${toShiftSummary(requestedShift)}.`
+                : `${currentUser?.name ?? 'A teammate'} cancelled the schedule request for ${toShiftSummary(
+                    requestedShift
+                  )}.`
             )
           );
         }
@@ -807,7 +1007,7 @@ export default function App() {
     }
 
     setSwapRequests((previous) => previous.filter((item) => item.id !== requestId));
-    addLocalNotification('Swap Request Cancelled', 'Your pending swap request was cancelled.');
+    addLocalNotification('Schedule Request Cancelled', 'Your pending schedule request was cancelled.');
   }
 
   async function handleMarkAllRead() {
@@ -1618,7 +1818,6 @@ export default function App() {
               swapRequests={swapRequests}
               onAddShift={handleAddShift}
               onShiftClick={handleShiftClick}
-              onRequestSwap={handleRequestSwap}
               onPrevWeek={() => setWeekStart(toIsoDate(subWeeks(weekDate, 1)))}
               onNextWeek={() => setWeekStart(toIsoDate(addWeeks(weekDate, 1)))}
               disableWeekControls={dataLoading}
@@ -1678,10 +1877,22 @@ export default function App() {
           {swapTradeTargetShift ? (
             <SwapTradeRequestModal
               targetShift={swapTradeTargetShift}
-              targetEmployeeName={swapTargetEmployee?.name ?? 'Teammate'}
+              targetEmployeeName={
+                employees.find((employee) => employee.id === swapTradeTargetShift.employeeId)?.name ??
+                'teammate'
+              }
               offeredShifts={tradeableShifts}
               onSubmit={handleSubmitSwapTrade}
               onClose={() => setSwapTradeTargetShift(null)}
+            />
+          ) : null}
+
+          {swapOfferShift ? (
+            <SwapOfferShiftModal
+              offeredShift={swapOfferShift}
+              targetEmployees={offerTargetEmployees}
+              onSubmit={handleSubmitSwapOffer}
+              onClose={() => setSwapOfferShift(null)}
             />
           ) : null}
         </>

@@ -260,17 +260,35 @@ with check (
   and status = 'pending_target'
   and exists (
     select 1
-    from public.shifts target_shift
-    join public.shifts offered_shift on offered_shift.id = public.swap_requests.offered_shift_id
-    join public.employees requester on requester.id = auth.uid()
+    from public.employees requester
     join public.employees target_employee on target_employee.id = public.swap_requests.target_employee_id
-    where target_shift.id = public.swap_requests.shift_id
-      and target_shift.employee_id = public.swap_requests.target_employee_id
-      and offered_shift.employee_id = auth.uid()
+    where requester.id = auth.uid()
       and requester.team_id = public.current_team_id()
       and target_employee.team_id = public.current_team_id()
       and requester.department_id is not null
       and requester.department_id = target_employee.department_id
+  )
+  and (
+    (
+      public.swap_requests.offered_shift_id is not null
+      and exists (
+        select 1
+        from public.shifts target_shift
+        join public.shifts offered_shift on offered_shift.id = public.swap_requests.offered_shift_id
+        where target_shift.id = public.swap_requests.shift_id
+          and target_shift.employee_id = public.swap_requests.target_employee_id
+          and offered_shift.employee_id = auth.uid()
+      )
+    )
+    or (
+      public.swap_requests.offered_shift_id is null
+      and exists (
+        select 1
+        from public.shifts offered_shift
+        where offered_shift.id = public.swap_requests.shift_id
+          and offered_shift.employee_id = auth.uid()
+      )
+    )
   )
 );
 

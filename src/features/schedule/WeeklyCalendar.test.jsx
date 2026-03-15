@@ -26,7 +26,7 @@ describe('WeeklyCalendar', () => {
     }
   ];
 
-  it('lets employees open trade flow from other employee shifts only', () => {
+  it('lets employees click visible shifts for schedule request flows', () => {
     const onShiftClick = vi.fn();
 
     render(
@@ -46,10 +46,11 @@ describe('WeeklyCalendar', () => {
     );
 
     fireEvent.click(screen.getByText('09:00 - 17:00'));
-    expect(onShiftClick).not.toHaveBeenCalled();
+    expect(onShiftClick).toHaveBeenCalledWith(expect.objectContaining({ id: 's1' }));
 
     fireEvent.click(screen.getByText('10:00 - 18:00'));
     expect(onShiftClick).toHaveBeenCalledWith(expect.objectContaining({ id: 's2' }));
+    expect(onShiftClick).toHaveBeenCalledTimes(2);
   });
 
   it('supports manager controls and week navigation', () => {
