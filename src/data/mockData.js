@@ -12,6 +12,14 @@ export const mockEmployees = [
     colorIndex: 0
   },
   {
+    id: 'emp-riley',
+    name: 'Riley Park',
+    email: 'riley.park@example.com',
+    role: 'employee',
+    department: 'KITCHEN',
+    colorIndex: 3
+  },
+  {
     id: 'emp-alex',
     name: 'Alex Morgan',
     email: 'alex.morgan@example.com',
@@ -48,7 +56,7 @@ export const mockShifts = [
   },
   {
     id: 'shift-3',
-    employeeId: 'emp-sam',
+    employeeId: 'emp-riley',
     day: 1,
     startTime: '07:00',
     endTime: '15:00',
@@ -56,10 +64,18 @@ export const mockShifts = [
   },
   {
     id: 'shift-4',
-    employeeId: 'emp-sam',
+    employeeId: 'emp-riley',
     day: 5,
     startTime: '15:00',
     endTime: '23:00',
+    weekStart
+  },
+  {
+    id: 'shift-5',
+    employeeId: 'emp-sam',
+    day: 2,
+    startTime: '08:00',
+    endTime: '16:00',
     weekStart
   }
 ];
@@ -68,9 +84,11 @@ export const mockSwapRequests = [
   {
     id: 'swap-1',
     shiftId: 'shift-3',
-    requestedBy: 'emp-sam',
+    offeredShiftId: 'shift-2',
+    requestedBy: 'emp-jamie',
+    targetEmployeeId: 'emp-riley',
     reason: 'Medical appointment in the morning.',
-    status: 'pending',
+    status: 'pending_manager',
     createdAt: new Date().toISOString()
   }
 ];
@@ -78,8 +96,8 @@ export const mockSwapRequests = [
 export const mockNotifications = [
   {
     id: 'notif-1',
-    title: 'Swap Request Submitted',
-    body: 'Sam Rivera requested a swap for Tuesday 07:00 - 15:00.',
+    title: 'Swap Request Awaiting Approval',
+    body: 'Jamie Chen and Riley Park accepted a shift trade request. Manager approval is required.',
     read: false,
     createdAt: new Date().toISOString()
   }

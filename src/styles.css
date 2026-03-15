@@ -526,6 +526,11 @@ button.danger {
   background: color-mix(in srgb, var(--color-2) 25%, transparent);
 }
 
+.status-pending_target,
+.status-pending_manager {
+  background: color-mix(in srgb, var(--color-2) 25%, transparent);
+}
+
 .status-approved {
   background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
