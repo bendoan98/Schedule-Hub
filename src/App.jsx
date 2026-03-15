@@ -811,8 +811,9 @@ export default function App() {
 
   const showAuthPanel = isSupabaseMode && !session;
   const missingProfile = isSupabaseMode && session && !dataLoading && !currentUser;
-  const needsTeamSetup = isSupabaseMode && session && !dataLoading && currentUser && !currentUser.teamId;
-  const showCoreApp = !showAuthPanel && !missingProfile && !needsTeamSetup;
+  const needsTeamSetup = isSupabaseMode && session && currentUser && !currentUser.teamId;
+  const waitingForInitialProfile = isSupabaseMode && session && dataLoading && !currentUser;
+  const showCoreApp = !showAuthPanel && !waitingForInitialProfile && !missingProfile && !needsTeamSetup;
   const canViewManagerPage = role === 'manager';
   const isManagerPage = showCoreApp && canViewManagerPage && activePage === 'manager';
 
