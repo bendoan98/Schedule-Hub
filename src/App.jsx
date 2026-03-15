@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addWeeks, subWeeks } from 'date-fns';
 import DashboardStats from './features/dashboard/DashboardStats';
-import CsvImportForm from './features/schedule/CsvImportForm';
 import WeeklyCalendar from './features/schedule/WeeklyCalendar';
 import ShiftEditorModal from './features/shifts/ShiftEditorModal';
-import SwapRequestsPanel from './features/swaps/SwapRequestsPanel';
 import NotificationBell from './features/notifications/NotificationBell';
 import MessageBoard from './features/board/MessageBoard';
 import ExportButtons from './features/export/ExportButtons';
-import TeamRosterPanel from './features/team/TeamRosterPanel';
+import ManagerPage from './features/manager/ManagerPage';
 import {
   mockBoardPosts,
   mockEmployees,
@@ -35,6 +33,7 @@ import { newId } from './utils/id';
 
 const ROLES = ['manager', 'employee'];
 const TEAM_MODES = ['create', 'join'];
+const PAGE_MODES = ['schedule', 'manager'];
 
 export default function App() {
   const isSupabaseMode = Boolean(hasSupabaseCredentials && supabase);
@@ -62,6 +61,7 @@ export default function App() {
   const [teamNameInput, setTeamNameInput] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [updatingDepartmentEmployeeId, setUpdatingDepartmentEmployeeId] = useState('');
+  const [activePage, setActivePage] = useState('schedule');
 
   const [authError, setAuthError] = useState('');
   const [appMessage, setAppMessage] = useState('');
@@ -88,6 +88,12 @@ export default function App() {
   }, [boardPosts, employees]);
 
   const weekDate = useMemo(() => new Date(`${weekStart}T12:00:00`), [weekStart]);
+
+  useEffect(() => {
+    if (role !== 'manager') {
+      setActivePage('schedule');
+    }
+  }, [role]);
 
   const loadSupabaseData = useCallback(async () => {
     if (!isSupabaseMode || !supabase || !session) {
@@ -245,6 +251,7 @@ export default function App() {
     }
 
     setRole(nextRole);
+    setActivePage('schedule');
 
     const matchingEmployee = employees.find((employee) => employee.role === nextRole);
 
@@ -641,6 +648,8 @@ export default function App() {
   const missingProfile = isSupabaseMode && session && !dataLoading && !currentUser;
   const needsTeamSetup = isSupabaseMode && session && !dataLoading && currentUser && !currentUser.teamId;
   const showCoreApp = !showAuthPanel && !missingProfile && !needsTeamSetup;
+  const canViewManagerPage = role === 'manager';
+  const isManagerPage = showCoreApp && canViewManagerPage && activePage === 'manager';
 
   return (
     <div className="app-shell">
@@ -713,13 +722,19 @@ export default function App() {
           ) : null}
 
           {showCoreApp ? (
-            role === 'manager' ? (
-              <CsvImportForm
-                weekStart={weekStart}
-                employees={employees}
-                onImport={handleCsvImport}
-                compact
-              />
+            canViewManagerPage ? (
+              <div className="role-toggle" role="tablist" aria-label="Page toggle">
+                {PAGE_MODES.map((pageMode) => (
+                  <button
+                    key={pageMode}
+                    type="button"
+                    className={activePage === pageMode ? 'active' : ''}
+                    onClick={() => setActivePage(pageMode)}
+                  >
+                    {pageMode === 'schedule' ? 'Schedule' : 'Manager Page'}
+                  </button>
+                ))}
+              </div>
             ) : null
           ) : null}
 
@@ -932,7 +947,19 @@ export default function App() {
             currentEmployeeId={currentEmployeeId}
           />
 
-          <main className="main-layout">
+          {isManagerPage ? (
+            <ManagerPage
+              weekStart={weekStart}
+              employees={employees}
+              onImport={handleCsvImport}
+              onUpdateDepartment={handleUpdateEmployeeDepartment}
+              updatingEmployeeId={updatingDepartmentEmployeeId}
+              currentEmployeeId={currentEmployeeId}
+              swapRequests={swapRequests}
+              shifts={shifts}
+              onDecision={handleSwapDecision}
+            />
+          ) : (
             <WeeklyCalendar
               employees={visibleEmployees}
               shifts={shifts}
@@ -958,28 +985,7 @@ export default function App() {
                 />
               }
             />
-
-            <aside className="side-column">
-              {role === 'manager' ? (
-                <TeamRosterPanel
-                  employees={employees}
-                  onUpdateDepartment={handleUpdateEmployeeDepartment}
-                  updatingEmployeeId={updatingDepartmentEmployeeId}
-                  managerEmployeeId={currentEmployeeId}
-                />
-              ) : null}
-
-              <SwapRequestsPanel
-                role={role}
-                currentEmployeeId={currentEmployeeId}
-                swapRequests={swapRequests}
-                shifts={shifts}
-                employees={employees}
-                onDecision={handleSwapDecision}
-              />
-
-            </aside>
-          </main>
+          )}
 
           <MessageBoard
             posts={postsWithAuthors}

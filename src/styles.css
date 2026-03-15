@@ -244,6 +244,23 @@ button.danger {
   gap: 1rem;
 }
 
+.manager-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.manager-page-header p {
+  margin-top: 0.35rem;
+  color: var(--muted);
+}
+
+.manager-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
 .calendar-header-row {
   display: flex;
   justify-content: space-between;

@@ -7,6 +7,7 @@ function formatShiftLabel(shift, employeeName) {
 }
 
 export default function SwapRequestsPanel({
+  title = 'Swap Requests',
   role,
   currentEmployeeId,
   swapRequests,
@@ -24,7 +25,7 @@ export default function SwapRequestsPanel({
 
   return (
     <section className="panel">
-      <h3>Swap Requests</h3>
+      <h3>{title}</h3>
 
       {visibleRequests.length === 0 ? <p>No swap requests yet.</p> : null}
 
