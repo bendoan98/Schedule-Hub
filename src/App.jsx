@@ -69,6 +69,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState('sign_in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [teamSetupMode, setTeamSetupMode] = useState('create');
   const [teamNameInput, setTeamNameInput] = useState('');
@@ -942,6 +943,30 @@ export default function App() {
     }
   }
 
+  async function handleForgotPassword() {
+    if (!supabase) {
+      return;
+    }
+
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      setAuthError('Enter your email first.');
+      return;
+    }
+
+    setAuthError('');
+
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
+
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+
+    setAppMessage(`Password reset email sent to ${trimmedEmail}.`);
+  }
+
   const showAuthPanel = isSupabaseMode && !session;
   const missingProfile = isSupabaseMode && session && !dataLoading && !currentUser;
   const needsTeamSetup = isSupabaseMode && session && currentUser && !currentUser.teamId;
@@ -951,7 +976,7 @@ export default function App() {
   const isManagerPage = showCoreApp && canViewManagerPage && activePage === 'manager';
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${showAuthPanel && !authLoading ? 'auth-view' : ''}`}>
       <header className="app-header">
         <div>
           <h1>Schedule Hub</h1>
@@ -1046,24 +1071,18 @@ export default function App() {
       {authLoading ? <section className="panel">Checking Supabase session...</section> : null}
 
       {showAuthPanel && !authLoading ? (
-        <section className="panel auth-panel">
-          <h3>{authMode === 'sign_up' ? 'Create Account' : 'Sign In to Supabase'}</h3>
-          <p>
-            {authMode === 'sign_up'
-              ? 'Create your account with name, email, and password.'
-              : 'Sign in with your email and password.'}
-          </p>
-
-          <div className="auth-mode-toggle" role="tablist" aria-label="Authentication mode">
+        <section className="panel auth-panel auth-template-panel">
+          <div className="auth-mode-toggle auth-template-toggle" role="tablist" aria-label="Authentication mode">
             <button
               type="button"
               className={authMode === 'sign_in' ? 'active' : ''}
               onClick={() => {
                 setAuthMode('sign_in');
                 setAuthError('');
+                setShowPassword(false);
               }}
             >
-              Sign In
+              Login
             </button>
             <button
               type="button"
@@ -1071,51 +1090,99 @@ export default function App() {
               onClick={() => {
                 setAuthMode('sign_up');
                 setAuthError('');
+                setShowPassword(false);
               }}
             >
               Sign Up
             </button>
           </div>
 
-          <form className="auth-form" onSubmit={authMode === 'sign_up' ? handleSignUp : handleSignIn}>
+          <h3 className="auth-template-title">{authMode === 'sign_up' ? 'Create account' : 'Welcome back'}</h3>
+
+          <form className="auth-form auth-template-form" onSubmit={authMode === 'sign_up' ? handleSignUp : handleSignIn}>
             {authMode === 'sign_up' ? (
-              <label>
-                Full Name
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  required
-                  autoComplete="name"
-                />
+              <label className="auth-field">
+                <span>Full Name</span>
+                <div className="auth-input-wrap">
+                  <span className="auth-input-icon" aria-hidden="true">
+                    ◯
+                  </span>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    required
+                    autoComplete="name"
+                    placeholder="John Doe"
+                  />
+                </div>
               </label>
             ) : null}
 
-            <label>
-              Email
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-                autoComplete="email"
-              />
+            <label className="auth-field">
+              <span>Email</span>
+              <div className="auth-input-wrap">
+                <span className="auth-input-icon" aria-hidden="true">
+                  @
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                />
+              </div>
             </label>
 
-            <label>
-              Password
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-                autoComplete={authMode === 'sign_up' ? 'new-password' : 'current-password'}
-              />
+            <label className="auth-field">
+              <span>Password</span>
+              <div className="auth-input-wrap">
+                <span className="auth-input-icon" aria-hidden="true">
+                  #
+                </span>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  autoComplete={authMode === 'sign_up' ? 'new-password' : 'current-password'}
+                  placeholder={authMode === 'sign_up' ? 'Create a password' : 'Enter password'}
+                />
+                <button
+                  type="button"
+                  className="auth-input-action"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </label>
 
-            <button type="submit" className="primary">
-              {authMode === 'sign_up' ? 'Create Account' : 'Sign In'}
+            {authMode === 'sign_in' ? (
+              <button type="button" className="inline-link auth-forgot-link" onClick={handleForgotPassword}>
+                Forgot password?
+              </button>
+            ) : null}
+
+            <button type="submit" className="primary auth-submit-button">
+              {authMode === 'sign_up' ? 'Sign Up' : 'Log In'}
             </button>
+
+            <div className="auth-divider">
+              <span>Or continue with</span>
+            </div>
+
+            <div className="auth-social-row">
+              <button type="button" className="auth-social-button" disabled>
+                Google
+              </button>
+              <button type="button" className="auth-social-button" disabled>
+                Facebook
+              </button>
+            </div>
           </form>
 
           {authError ? <p className="status-banner">{authError}</p> : null}

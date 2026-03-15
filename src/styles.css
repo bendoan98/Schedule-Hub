@@ -85,6 +85,10 @@ button.danger {
   gap: 1rem;
 }
 
+.app-shell.auth-view {
+  max-width: 980px;
+}
+
 .app-header {
   display: flex;
   justify-content: space-between;
@@ -690,6 +694,139 @@ button.danger {
 .auth-mode-toggle button.active {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.auth-template-panel {
+  width: min(480px, 100%);
+  margin: 1.5rem auto 0;
+  padding: 1.6rem 1.5rem;
+}
+
+.auth-template-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.auth-template-toggle button {
+  background: color-mix(in srgb, var(--bg-elevated) 86%, #0f161b);
+  font-weight: 600;
+}
+
+.auth-template-title {
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.auth-template-form {
+  max-width: none;
+  gap: 0.75rem;
+}
+
+.auth-field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+}
+
+.auth-field > span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.auth-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  padding: 0.48rem 0.6rem;
+  background: color-mix(in srgb, var(--bg-elevated) 86%, #121a20);
+}
+
+.auth-input-wrap:focus-within {
+  border-color: var(--accent);
+}
+
+.auth-input-icon {
+  color: var(--muted);
+  min-width: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.auth-input-wrap input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+.auth-input-wrap input::placeholder {
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
+.auth-input-action {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  font-size: 0.78rem;
+}
+
+.auth-input-action:hover {
+  color: var(--text);
+}
+
+.auth-forgot-link {
+  justify-self: end;
+  font-size: 0.82rem;
+}
+
+.auth-submit-button {
+  margin-top: 0.1rem;
+  width: 100%;
+  min-height: 2.8rem;
+  font-weight: 700;
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-social-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.auth-social-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
+  font-weight: 600;
+}
+
+.auth-social-button:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
 }
 
 .board-form label,
