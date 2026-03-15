@@ -3,8 +3,21 @@
 
 insert into public.teams (id, name, invite_code, created_by)
 values
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Downtown Ops', 'TEAMOPS1', '11111111-1111-1111-1111-111111111111')
+  (
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'Downtown Ops',
+    'TEAMOPS1',
+    '11111111-1111-1111-1111-111111111111'
+  )
 on conflict (id) do nothing;
+
+insert into public.departments (team_id, name)
+values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'UNASSIGNED'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'OPERATIONS'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'KITCHEN'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'DRIVER')
+on conflict (team_id, name) do nothing;
 
 insert into public.employees (id, team_id, name, email, role, department, color_index)
 values

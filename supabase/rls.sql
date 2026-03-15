@@ -32,6 +32,7 @@ grant execute on function public.current_team_id() to authenticated;
 grant execute on function public.is_manager() to authenticated;
 
 alter table public.teams enable row level security;
+alter table public.departments enable row level security;
 alter table public.employees enable row level security;
 alter table public.shifts enable row level security;
 alter table public.swap_requests enable row level security;
@@ -42,6 +43,9 @@ alter table public.message_posts enable row level security;
 drop policy if exists "teams_select_own_team" on public.teams;
 drop policy if exists "teams_update_manager_same_team" on public.teams;
 drop policy if exists "teams_delete_manager_same_team" on public.teams;
+
+drop policy if exists "departments_select_team_scope" on public.departments;
+drop policy if exists "departments_modify_manager_same_team" on public.departments;
 
 drop policy if exists "employees_select_self_or_team_manager" on public.employees;
 drop policy if exists "employees_update_manager_same_team" on public.employees;
@@ -100,6 +104,24 @@ on public.teams
 for delete
 using (
   public.is_manager() and id = public.current_team_id()
+);
+
+-- Departments policies
+create policy "departments_select_team_scope"
+on public.departments
+for select
+using (
+  team_id = public.current_team_id()
+);
+
+create policy "departments_modify_manager_same_team"
+on public.departments
+for all
+using (
+  public.is_manager() and team_id = public.current_team_id()
+)
+with check (
+  public.is_manager() and team_id = public.current_team_id()
 );
 
 -- Employees policies

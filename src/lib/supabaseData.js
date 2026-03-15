@@ -1,3 +1,5 @@
+import { buildDepartmentList, toStoredDepartment } from '../utils/department';
+
 function normalizeError(error, fallback) {
   if (!error) {
     return null;
@@ -26,6 +28,10 @@ function mapTeam(row) {
     createdBy: row.created_by,
     createdAt: row.created_at
   };
+}
+
+function mapDepartmentName(row) {
+  return toStoredDepartment(row.name);
 }
 
 function mapShift(row) {
@@ -99,7 +105,7 @@ function mapRpcTeamResult(data, fallbackErrorMessage) {
 }
 
 export async function fetchAppData(client) {
-  const [employeesRes, teamsRes, shiftsRes, swapRes, notificationsRes, postsRes] = await Promise.all([
+  const [employeesRes, teamsRes, departmentsRes, shiftsRes, swapRes, notificationsRes, postsRes] = await Promise.all([
     client
       .from('employees')
       .select('id, team_id, name, email, role, department, color_index')
@@ -108,6 +114,10 @@ export async function fetchAppData(client) {
       .from('teams')
       .select('id, name, invite_code, created_by, created_at')
       .limit(1),
+    client
+      .from('departments')
+      .select('id, team_id, name')
+      .order('name', { ascending: true }),
     client
       .from('shifts')
       .select('id, employee_id, day, start_time, end_time, week_start')
@@ -129,6 +139,7 @@ export async function fetchAppData(client) {
   const firstError =
     employeesRes.error ||
     teamsRes.error ||
+    departmentsRes.error ||
     shiftsRes.error ||
     swapRes.error ||
     notificationsRes.error ||
@@ -143,6 +154,7 @@ export async function fetchAppData(client) {
   return {
     employees: (employeesRes.data ?? []).map(mapEmployee),
     team: teamsRes.data?.[0] ? mapTeam(teamsRes.data[0]) : null,
+    departments: buildDepartmentList((departmentsRes.data ?? []).map(mapDepartmentName)),
     shifts: (shiftsRes.data ?? []).map(mapShift),
     swapRequests: (swapRes.data ?? []).map(mapSwapRequest),
     notifications: (notificationsRes.data ?? []).map(mapNotification),
@@ -172,6 +184,87 @@ export async function joinTeamWithInviteCode(client, inviteCode) {
   }
 
   return mapRpcTeamResult(data, 'Unable to read joined team response.');
+}
+
+export async function createDepartment(client, teamId, departmentName) {
+  const name = toStoredDepartment(departmentName);
+  const { error } = await client.from('departments').insert({
+    team_id: teamId,
+    name
+  });
+
+  if (error) {
+    throw normalizeError(error, 'Unable to create department.');
+  }
+}
+
+export async function renameDepartment(client, { teamId, fromName, toName }) {
+  const source = toStoredDepartment(fromName);
+  const target = toStoredDepartment(toName);
+
+  if (source === target) {
+    return;
+  }
+
+  const { error } = await client
+    .from('departments')
+    .update({ name: target })
+    .eq('team_id', teamId)
+    .eq('name', source);
+
+  if (error) {
+    throw normalizeError(error, 'Unable to rename department.');
+  }
+}
+
+export async function deleteDepartment(client, { teamId, name }) {
+  const normalized = toStoredDepartment(name);
+  const { error } = await client
+    .from('departments')
+    .delete()
+    .eq('team_id', teamId)
+    .eq('name', normalized);
+
+  if (error) {
+    throw normalizeError(error, 'Unable to delete department.');
+  }
+}
+
+export async function ensureDepartment(client, teamId, departmentName) {
+  const name = toStoredDepartment(departmentName);
+  const { error } = await client.from('departments').upsert(
+    {
+      team_id: teamId,
+      name
+    },
+    {
+      onConflict: 'team_id,name',
+      ignoreDuplicates: true
+    }
+  );
+
+  if (error) {
+    throw normalizeError(error, 'Unable to ensure department exists.');
+  }
+}
+
+export async function replaceDepartmentForTeam(client, { teamId, fromDepartment, toDepartment }) {
+  const source = toStoredDepartment(fromDepartment);
+  const target = toStoredDepartment(toDepartment);
+
+  if (source === target) {
+    return;
+  }
+
+  const { error } = await client
+    .from('employees')
+    .update({ department: target })
+    .eq('team_id', teamId)
+    .eq('department', source);
+
+  if (error) {
+    throw normalizeError(error, 'Unable to update team department members.');
+  }
 }
 
 export async function updateEmployeeDepartment(client, employeeId, department) {

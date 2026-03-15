@@ -14,6 +14,7 @@ create table if not exists public.teams (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   invite_code text not null unique default public.generate_invite_code(),
+  departments text[] not null default array['UNASSIGNED']::text[],
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -21,6 +22,7 @@ create table if not exists public.teams (
 alter table public.teams
   add column if not exists name text,
   add column if not exists invite_code text,
+  add column if not exists departments text[] default array['UNASSIGNED']::text[],
   add column if not exists created_by uuid references auth.users (id) on delete set null,
   add column if not exists created_at timestamptz not null default timezone('utc', now());
 
@@ -30,6 +32,33 @@ where invite_code is null;
 
 create unique index if not exists teams_invite_code_unique_idx on public.teams (invite_code);
 alter table public.teams alter column invite_code set default public.generate_invite_code();
+alter table public.teams alter column departments set default array['UNASSIGNED']::text[];
+update public.teams
+set departments = array['UNASSIGNED']::text[]
+where departments is null or cardinality(departments) = 0;
+alter table public.teams alter column departments set not null;
+
+create table if not exists public.departments (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams (id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default timezone('utc', now()),
+  constraint departments_team_name_unique unique (team_id, name)
+);
+
+create index if not exists departments_team_idx on public.departments (team_id);
+create index if not exists departments_team_name_idx on public.departments (team_id, name);
+
+insert into public.departments (team_id, name)
+select t.id, dep.name
+from public.teams t
+cross join lateral unnest(coalesce(t.departments, array['UNASSIGNED']::text[])) as dep(name)
+where not exists (
+  select 1
+  from public.departments d
+  where d.team_id = t.id
+)
+on conflict (team_id, name) do nothing;
 
 create table if not exists public.employees (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -47,6 +76,13 @@ alter table public.employees
 alter table public.employees alter column role set default 'employee';
 
 create index if not exists employees_team_idx on public.employees (team_id);
+
+insert into public.departments (team_id, name)
+select distinct e.team_id, e.department
+from public.employees e
+where e.team_id is not null
+  and nullif(trim(e.department), '') is not null
+on conflict (team_id, name) do nothing;
 
 -- Automatically provision an employee profile when a new auth user signs up.
 create or replace function public.handle_new_user()
@@ -137,6 +173,17 @@ begin
       role = 'manager'
   where id = current_user_id;
 
+  insert into public.departments (team_id, name)
+  values (created_team.id, 'UNASSIGNED')
+  on conflict (team_id, name) do nothing;
+
+  insert into public.departments (team_id, name)
+  select created_team.id, e.department
+  from public.employees e
+  where e.id = current_user_id
+    and nullif(trim(e.department), '') is not null
+  on conflict (team_id, name) do nothing;
+
   return query
   select created_team.id, created_team.name, created_team.invite_code, 'manager'::text;
 end;
@@ -181,6 +228,17 @@ begin
   set team_id = requested_team.id,
       role = 'employee'
   where id = current_user_id;
+
+  insert into public.departments (team_id, name)
+  values (requested_team.id, 'UNASSIGNED')
+  on conflict (team_id, name) do nothing;
+
+  insert into public.departments (team_id, name)
+  select requested_team.id, e.department
+  from public.employees e
+  where e.id = current_user_id
+    and nullif(trim(e.department), '') is not null
+  on conflict (team_id, name) do nothing;
 
   return query
   select requested_team.id, requested_team.name, requested_team.invite_code, 'employee'::text;
