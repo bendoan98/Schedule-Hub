@@ -115,6 +115,21 @@ button.danger {
   padding-left: 0.75rem;
 }
 
+.session-chip {
+  display: grid;
+  gap: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 0.35rem 0.65rem;
+  background: color-mix(in srgb, var(--bg-elevated) 78%, #111a20);
+}
+
+.session-chip small {
+  color: var(--muted);
+  text-transform: capitalize;
+  font-size: 0.75rem;
+}
+
 .role-toggle {
   display: flex;
   gap: 0.3rem;
@@ -439,6 +454,17 @@ button.danger {
   display: grid;
   gap: 0.5rem;
   margin-bottom: 0.9rem;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 420px;
 }
 
 .board-form label,

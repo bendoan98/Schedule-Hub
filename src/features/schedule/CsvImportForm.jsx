@@ -18,8 +18,8 @@ export default function CsvImportForm({ weekStart, employees, onImport }) {
     try {
       const csvText = await file.text();
       const result = parseScheduleCsv(csvText, weekStart, employees);
-      onImport(result);
-      setStatus(`Imported ${result.rowCount} rows and ${result.importedShifts.length} shifts.`);
+      const importStatus = await onImport(result);
+      setStatus(importStatus ?? `Imported ${result.rowCount} rows and ${result.importedShifts.length} shifts.`);
     } catch (error) {
       setStatus(`Import failed: ${error.message}`);
     } finally {
