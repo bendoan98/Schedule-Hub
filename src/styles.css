@@ -824,11 +824,6 @@ button.danger {
   font-weight: 600;
 }
 
-.auth-social-button:disabled {
-  opacity: 0.75;
-  cursor: not-allowed;
-}
-
 .board-form label,
 .modal-form label,
 .header-actions label {

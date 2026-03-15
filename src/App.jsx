@@ -967,6 +967,29 @@ export default function App() {
     setAppMessage(`Password reset email sent to ${trimmedEmail}.`);
   }
 
+  async function handleOAuthSignIn(provider) {
+    if (!supabase) {
+      return;
+    }
+
+    setAuthError('');
+    setAppMessage('');
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+
+    setAppMessage(`Redirecting to ${provider === 'google' ? 'Google' : 'Facebook'}...`);
+  }
+
   const showAuthPanel = isSupabaseMode && !session;
   const missingProfile = isSupabaseMode && session && !dataLoading && !currentUser;
   const needsTeamSetup = isSupabaseMode && session && currentUser && !currentUser.teamId;
@@ -1176,10 +1199,18 @@ export default function App() {
             </div>
 
             <div className="auth-social-row">
-              <button type="button" className="auth-social-button" disabled>
+              <button
+                type="button"
+                className="auth-social-button"
+                onClick={() => handleOAuthSignIn('google')}
+              >
                 Google
               </button>
-              <button type="button" className="auth-social-button" disabled>
+              <button
+                type="button"
+                className="auth-social-button"
+                onClick={() => handleOAuthSignIn('facebook')}
+              >
                 Facebook
               </button>
             </div>
