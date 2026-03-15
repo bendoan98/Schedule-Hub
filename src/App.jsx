@@ -672,7 +672,7 @@ export default function App() {
         await replaceDepartmentForTeam(supabase, {
           teamId: team.id,
           fromDepartment: sourceDepartment,
-          toDepartment: DEFAULT_DEPARTMENT
+          toDepartment: null
         });
         await deleteDepartment(supabase, {
           teamId: team.id,
@@ -697,7 +697,7 @@ export default function App() {
 
         return {
           ...employee,
-          department: DEFAULT_DEPARTMENT
+          department: null
         };
       })
     );
@@ -705,7 +705,7 @@ export default function App() {
     setTeamDepartments(nextDepartments);
 
     setDepartmentActionLoading(false);
-    addLocalNotification('Department Deleted', `${sourceDepartment} moved to ${DEFAULT_DEPARTMENT}.`);
+    addLocalNotification('Department Deleted', `${sourceDepartment} moved to no department.`);
   }
 
   async function handleSignIn(event) {

@@ -16,7 +16,10 @@ export default function DepartmentManagerPanel({
   const [newDepartment, setNewDepartment] = useState('');
   const [renameDrafts, setRenameDrafts] = useState({});
 
-  const managedDepartments = useMemo(() => buildDepartmentList(departments), [departments]);
+  const managedDepartments = useMemo(
+    () => buildDepartmentList(departments).filter((department) => department !== DEFAULT_DEPARTMENT),
+    [departments]
+  );
 
   const memberCountByDepartment = useMemo(() => {
     const counts = new Map();
@@ -34,7 +37,7 @@ export default function DepartmentManagerPanel({
 
     const normalized = normalizeDepartmentName(newDepartment);
 
-    if (!normalized || managedDepartments.includes(normalized)) {
+    if (!normalized || normalized === DEFAULT_DEPARTMENT || managedDepartments.includes(normalized)) {
       return;
     }
 
@@ -67,7 +70,7 @@ export default function DepartmentManagerPanel({
     }
 
     const shouldDelete = window.confirm(
-      `Delete ${department}? Team members in this department will be moved to ${DEFAULT_DEPARTMENT}.`
+      `Delete ${department}? Team members in this department will have no department.`
     );
 
     if (!shouldDelete) {
@@ -99,13 +102,14 @@ export default function DepartmentManagerPanel({
       </form>
 
       <div className="department-list">
+        {managedDepartments.length === 0 ? <p className="muted">No departments yet.</p> : null}
         {managedDepartments.map((department) => {
           const draftValue = renameDrafts[department] ?? department;
           const normalizedDraft = normalizeDepartmentName(draftValue);
           const hasMembers = memberCountByDepartment.get(department) ?? 0;
           const canRename =
-            department !== DEFAULT_DEPARTMENT &&
             Boolean(normalizedDraft) &&
+            normalizedDraft !== DEFAULT_DEPARTMENT &&
             normalizedDraft !== department &&
             !managedDepartments.includes(normalizedDraft);
 
@@ -116,36 +120,32 @@ export default function DepartmentManagerPanel({
                 <small>{hasMembers} member{hasMembers === 1 ? '' : 's'}</small>
               </div>
 
-              {department !== DEFAULT_DEPARTMENT ? (
-                <form
-                  className="department-rename-form"
-                  onSubmit={(event) => handleRenameDepartment(event, department)}
-                >
-                  <label>
-                    Rename To
-                    <input
-                      type="text"
-                      value={draftValue}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setRenameDrafts((previous) => ({
-                          ...previous,
-                          [department]: value
-                        }));
-                      }}
-                      disabled={isSaving}
-                    />
-                  </label>
-                  <button type="submit" disabled={isSaving || !canRename}>
-                    Rename
-                  </button>
-                  <button type="button" className="danger" disabled={isSaving} onClick={() => handleDeleteDepartment(department)}>
-                    Delete
-                  </button>
-                </form>
-              ) : (
-                <p className="muted">Default fallback department.</p>
-              )}
+              <form
+                className="department-rename-form"
+                onSubmit={(event) => handleRenameDepartment(event, department)}
+              >
+                <label>
+                  Rename To
+                  <input
+                    type="text"
+                    value={draftValue}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setRenameDrafts((previous) => ({
+                        ...previous,
+                        [department]: value
+                      }));
+                    }}
+                    disabled={isSaving}
+                  />
+                </label>
+                <button type="submit" disabled={isSaving || !canRename}>
+                  Rename
+                </button>
+                <button type="button" className="danger" disabled={isSaving} onClick={() => handleDeleteDepartment(department)}>
+                  Delete
+                </button>
+              </form>
             </article>
           );
         })}

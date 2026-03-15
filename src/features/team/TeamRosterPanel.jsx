@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { buildDepartmentList, toStoredDepartment } from '../../utils/department';
+import { DEFAULT_DEPARTMENT, buildDepartmentList, toStoredDepartment } from '../../utils/department';
 
 export default function TeamRosterPanel({
   employees,
@@ -17,18 +17,24 @@ export default function TeamRosterPanel({
   }, [employees, managerEmployeeId]);
 
   const departmentOptions = useMemo(
-    () => buildDepartmentList(departments ?? []),
+    () => buildDepartmentList(departments ?? []).filter((department) => department !== DEFAULT_DEPARTMENT),
     [departments]
   );
 
   function getDraftDepartment(employee) {
-    return drafts[employee.id] ?? employee.department ?? 'UNASSIGNED';
+    return drafts[employee.id] ?? employee.department ?? departmentOptions[0] ?? '';
   }
 
   async function handleSubmit(event, employee) {
     event.preventDefault();
 
-    const nextDepartment = toStoredDepartment(getDraftDepartment(employee));
+    const draftDepartment = getDraftDepartment(employee);
+
+    if (!draftDepartment) {
+      return;
+    }
+
+    const nextDepartment = toStoredDepartment(draftDepartment);
 
     if (nextDepartment === toStoredDepartment(employee.department)) {
       return;
@@ -76,6 +82,11 @@ export default function TeamRosterPanel({
                       }));
                     }}
                   >
+                    {departmentOptions.length === 0 ? (
+                      <option value="" disabled>
+                        No departments available
+                      </option>
+                    ) : null}
                     {departmentOptions.map((department) => (
                       <option key={department} value={department}>
                         {department}
@@ -84,7 +95,7 @@ export default function TeamRosterPanel({
                   </select>
                 </label>
 
-                <button type="submit" disabled={unchanged || isSaving}>
+                <button type="submit" disabled={unchanged || isSaving || !draftDepartment}>
                   {isSaving ? 'Saving...' : 'Save'}
                 </button>
               </form>

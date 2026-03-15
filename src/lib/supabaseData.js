@@ -250,7 +250,7 @@ export async function ensureDepartment(client, teamId, departmentName) {
 
 export async function replaceDepartmentForTeam(client, { teamId, fromDepartment, toDepartment }) {
   const source = toStoredDepartment(fromDepartment);
-  const target = toStoredDepartment(toDepartment);
+  const target = toDepartment == null ? null : toStoredDepartment(toDepartment);
 
   if (source === target) {
     return;
