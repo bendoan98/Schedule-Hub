@@ -10,6 +10,8 @@ import ManagerPage from './features/manager/ManagerPage';
 import SwapRequestsPanel from './features/swaps/SwapRequestsPanel';
 import SwapTradeRequestModal from './features/swaps/SwapTradeRequestModal';
 import SwapOfferShiftModal from './features/swaps/SwapOfferShiftModal';
+import OwnShiftActionModal from './features/swaps/OwnShiftActionModal';
+import TimeOffRequestModal from './features/swaps/TimeOffRequestModal';
 import {
   mockBoardPosts,
   mockEmployees,
@@ -68,6 +70,8 @@ export default function App() {
   const [editingShift, setEditingShift] = useState(null);
   const [swapTradeTargetShift, setSwapTradeTargetShift] = useState(null);
   const [swapOfferShift, setSwapOfferShift] = useState(null);
+  const [ownShiftActionShift, setOwnShiftActionShift] = useState(null);
+  const [timeOffShift, setTimeOffShift] = useState(null);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(isSupabaseMode);
   const [dataLoading, setDataLoading] = useState(false);
@@ -158,7 +162,7 @@ export default function App() {
 
     return employees
       .filter((employee) => {
-        if (employee.id === currentEmployeeId) {
+        if (employee.id === currentEmployeeId || employee.role !== 'employee') {
           return false;
         }
 
@@ -497,16 +501,18 @@ export default function App() {
       return;
     }
 
+    if (shift.employeeId === currentEmployeeId) {
+      setSwapTradeTargetShift(null);
+      setSwapOfferShift(null);
+      setTimeOffShift(null);
+      setOwnShiftActionShift(shift);
+      return;
+    }
+
     const requesterDepartment = normalizeDepartmentName(currentUser?.department);
 
     if (!requesterDepartment) {
       setAppMessage('Schedule requests are only available with teammates in your department.');
-      return;
-    }
-
-    if (shift.employeeId === currentEmployeeId) {
-      setSwapTradeTargetShift(null);
-      setSwapOfferShift(shift);
       return;
     }
 
@@ -518,6 +524,8 @@ export default function App() {
       return;
     }
 
+    setOwnShiftActionShift(null);
+    setTimeOffShift(null);
     setSwapOfferShift(null);
     setSwapTradeTargetShift(shift);
   }
@@ -576,6 +584,24 @@ export default function App() {
     setShifts((previous) => previous.filter((shift) => shift.id !== shiftId));
     setEditingShift(null);
     addLocalNotification('Shift Deleted', 'A shift was removed from the schedule.');
+  }
+
+  function handleOpenOwnShiftOffer() {
+    if (!ownShiftActionShift) {
+      return;
+    }
+
+    setSwapOfferShift(ownShiftActionShift);
+    setOwnShiftActionShift(null);
+  }
+
+  function handleOpenOwnShiftTimeOff() {
+    if (!ownShiftActionShift) {
+      return;
+    }
+
+    setTimeOffShift(ownShiftActionShift);
+    setOwnShiftActionShift(null);
   }
 
   async function handleSubmitSwapTrade({ offeredShiftId, reason }) {
@@ -676,7 +702,7 @@ export default function App() {
     const requesterDepartment = normalizeDepartmentName(currentUser?.department);
     const targetDepartment = normalizeDepartmentName(targetEmployee?.department);
 
-    if (!targetEmployee || targetEmployeeId === currentEmployeeId) {
+    if (!targetEmployee || targetEmployee.role !== 'employee' || targetEmployeeId === currentEmployeeId) {
       setAppMessage('Select a teammate to offer this shift.');
       return;
     }
@@ -751,6 +777,89 @@ export default function App() {
     );
   }
 
+  async function handleSubmitTimeOffRequest({ reason }) {
+    if (!timeOffShift) {
+      return;
+    }
+
+    const selectedShift = timeOffShift;
+    const managerRecipientIds = Array.from(
+      new Set(
+        [
+          ...employees
+            .filter((employee) => employee.role === 'manager')
+            .map((employee) => employee.id),
+          team?.createdBy ?? null
+        ].filter((employeeId) => employeeId && employeeId !== currentEmployeeId)
+      )
+    );
+
+    if (managerRecipientIds.length === 0) {
+      setAppMessage('No manager is available to review this time-off request.');
+      return;
+    }
+
+    const trimmedReason = reason.trim();
+    const primaryManagerId = managerRecipientIds[0];
+
+    if (isSupabaseMode && session && supabase) {
+      try {
+        if (!currentEmployeeId) {
+          throw new Error('No employee profile selected for this user.');
+        }
+
+        await createSwapRequest(supabase, {
+          shiftId: selectedShift.id,
+          offeredShiftId: null,
+          requestedBy: currentEmployeeId,
+          targetEmployeeId: primaryManagerId,
+          reason: trimmedReason,
+          status: 'pending_manager'
+        });
+
+        await insertNotifications(
+          supabase,
+          buildNotificationTargets(
+            managerRecipientIds,
+            'Time Off Request Received',
+            `${currentUser?.name ?? 'A teammate'} requested time off for ${toShiftSummary(selectedShift)}${
+              trimmedReason ? `: ${trimmedReason}` : '.'
+            }`
+          )
+        );
+
+        await loadSupabaseData();
+        setAppMessage('Time-off request sent to manager.');
+      } catch (error) {
+        setAppMessage(error.message);
+      } finally {
+        setTimeOffShift(null);
+      }
+
+      return;
+    }
+
+    setSwapRequests((previous) => [
+      {
+        id: newId(),
+        shiftId: selectedShift.id,
+        offeredShiftId: null,
+        requestedBy: currentEmployeeId,
+        targetEmployeeId: primaryManagerId,
+        reason: trimmedReason,
+        status: 'pending_manager',
+        createdAt: new Date().toISOString()
+      },
+      ...previous
+    ]);
+
+    setTimeOffShift(null);
+    addLocalNotification(
+      'Time Off Request Sent',
+      `${currentUser?.name ?? 'Employee'} requested time off for ${toShiftSummary(selectedShift)}.`
+    );
+  }
+
   async function handleSwapDecision(requestId, status) {
     const request = swapRequests.find((item) => item.id === requestId);
 
@@ -762,12 +871,18 @@ export default function App() {
     const offeredShift = request.offeredShiftId
       ? shifts.find((shift) => shift.id === request.offeredShiftId)
       : null;
+    const targetEmployee = request.targetEmployeeId
+      ? employees.find((employee) => employee.id === request.targetEmployeeId) ?? null
+      : null;
     const isTradeRequest = Boolean(request.offeredShiftId);
+    const isTimeOffRequest = !isTradeRequest && targetEmployee?.role === 'manager';
     const autoDeniedByConflict =
       (status === 'pending_manager' || status === 'approved') &&
       (isTradeRequest
         ? hasTradeConflict(requestedShift, offeredShift)
-        : hasOfferConflict(requestedShift, request.targetEmployeeId));
+        : isTimeOffRequest
+          ? false
+          : hasOfferConflict(requestedShift, request.targetEmployeeId));
     const resolvedStatus = autoDeniedByConflict ? 'denied' : status;
 
     if (isSupabaseMode && session && supabase) {
@@ -796,6 +911,12 @@ export default function App() {
               },
               offeredShift.weekStart
             );
+          } else if (isTimeOffRequest) {
+            if (!requestedShift) {
+              throw new Error('Requested shift is no longer available.');
+            }
+
+            await removeShift(supabase, requestedShift.id);
           } else {
             if (!requestedShift || !request.targetEmployeeId) {
               throw new Error('Requested shift is no longer available.');
@@ -830,7 +951,7 @@ export default function App() {
                     requestedShift
                   )} was denied automatically due to a schedule conflict.`
             );
-          } else if (resolvedStatus === 'pending_manager') {
+          } else if (resolvedStatus === 'pending_manager' && !isTimeOffRequest) {
             const managerIds = employees
               .filter((employee) => employee.role === 'manager')
               .map((employee) => employee.id);
@@ -846,7 +967,11 @@ export default function App() {
                     requestedShift
                   )}. Final manager approval is required.`
             );
-          } else if (resolvedStatus === 'denied' && currentEmployeeId === request.targetEmployeeId) {
+          } else if (
+            resolvedStatus === 'denied' &&
+            currentEmployeeId === request.targetEmployeeId &&
+            request.status === 'pending_target'
+          ) {
             notificationsToInsert = buildNotificationTargets(
               [request.requestedBy],
               'Schedule Request Denied',
@@ -858,15 +983,24 @@ export default function App() {
             );
           } else if (resolvedStatus === 'approved' || resolvedStatus === 'denied') {
             const finalWord = resolvedStatus === 'approved' ? 'approved' : 'denied';
-            notificationsToInsert = buildNotificationTargets(
-              [request.requestedBy, request.targetEmployeeId],
-              `Schedule Request ${resolvedStatus === 'approved' ? 'Approved' : 'Denied'}`,
-              isTradeRequest
-                ? `Manager ${finalWord} the trade request for ${toShiftSummary(
-                    offeredShift
-                  )} and ${toShiftSummary(requestedShift)}.`
-                : `Manager ${finalWord} the schedule request for ${toShiftSummary(requestedShift)}.`
-            );
+
+            if (isTimeOffRequest) {
+              notificationsToInsert = buildNotificationTargets(
+                [request.requestedBy],
+                `Time Off Request ${resolvedStatus === 'approved' ? 'Approved' : 'Denied'}`,
+                `Manager ${finalWord} your time-off request for ${toShiftSummary(requestedShift)}.`
+              );
+            } else {
+              notificationsToInsert = buildNotificationTargets(
+                [request.requestedBy, request.targetEmployeeId],
+                `Schedule Request ${resolvedStatus === 'approved' ? 'Approved' : 'Denied'}`,
+                isTradeRequest
+                  ? `Manager ${finalWord} the trade request for ${toShiftSummary(
+                      offeredShift
+                    )} and ${toShiftSummary(requestedShift)}.`
+                  : `Manager ${finalWord} the schedule request for ${toShiftSummary(requestedShift)}.`
+              );
+            }
           }
 
           await insertNotifications(
@@ -881,9 +1015,13 @@ export default function App() {
         } else if (resolvedStatus === 'pending_manager') {
           setAppMessage('Schedule request accepted and sent to manager for final approval.');
         } else if (resolvedStatus === 'approved') {
-          setAppMessage('Schedule request approved and shifts updated.');
+          setAppMessage(
+            isTimeOffRequest
+              ? 'Time-off request approved and shift removed.'
+              : 'Schedule request approved and shifts updated.'
+          );
         } else {
-          setAppMessage('Schedule request denied.');
+          setAppMessage(isTimeOffRequest ? 'Time-off request denied.' : 'Schedule request denied.');
         }
       } catch (error) {
         setAppMessage(error.message);
@@ -893,36 +1031,40 @@ export default function App() {
     }
 
     if (resolvedStatus === 'approved' && requestedShift) {
-      setShifts((previous) =>
-        previous.map((shift) => {
-          if (isTradeRequest && offeredShift) {
-            if (shift.id === requestedShift.id) {
-              return {
-                ...shift,
-                employeeId: offeredShift.employeeId
-              };
+      if (isTimeOffRequest) {
+        setShifts((previous) => previous.filter((shift) => shift.id !== requestedShift.id));
+      } else {
+        setShifts((previous) =>
+          previous.map((shift) => {
+            if (isTradeRequest && offeredShift) {
+              if (shift.id === requestedShift.id) {
+                return {
+                  ...shift,
+                  employeeId: offeredShift.employeeId
+                };
+              }
+
+              if (shift.id === offeredShift.id) {
+                return {
+                  ...shift,
+                  employeeId: requestedShift.employeeId
+                };
+              }
+
+              return shift;
             }
 
-            if (shift.id === offeredShift.id) {
+            if (shift.id === requestedShift.id && request.targetEmployeeId) {
               return {
                 ...shift,
-                employeeId: requestedShift.employeeId
+                employeeId: request.targetEmployeeId
               };
             }
 
             return shift;
-          }
-
-          if (shift.id === requestedShift.id && request.targetEmployeeId) {
-            return {
-              ...shift,
-              employeeId: request.targetEmployeeId
-            };
-          }
-
-          return shift;
-        })
-      );
+          })
+        );
+      }
     }
 
     setSwapRequests((previous) =>
@@ -949,13 +1091,18 @@ export default function App() {
       );
     } else if (resolvedStatus === 'approved') {
       addLocalNotification(
-        'Schedule Request Approved',
-        isTradeRequest
-          ? 'Manager approved the trade and shifts were swapped.'
-          : 'Manager approved the request and the shift was reassigned.'
+        isTimeOffRequest ? 'Time Off Request Approved' : 'Schedule Request Approved',
+        isTimeOffRequest
+          ? 'Manager approved the time-off request and removed the shift.'
+          : isTradeRequest
+            ? 'Manager approved the trade and shifts were swapped.'
+            : 'Manager approved the request and the shift was reassigned.'
       );
     } else {
-      addLocalNotification('Schedule Request Denied', 'A schedule request was denied.');
+      addLocalNotification(
+        isTimeOffRequest ? 'Time Off Request Denied' : 'Schedule Request Denied',
+        isTimeOffRequest ? 'A time-off request was denied.' : 'A schedule request was denied.'
+      );
     }
   }
 
@@ -998,7 +1145,7 @@ export default function App() {
         }
 
         await loadSupabaseData();
-        setAppMessage('Swap request cancelled.');
+        setAppMessage('Schedule request cancelled.');
       } catch (error) {
         setAppMessage(error.message);
       }
@@ -1874,6 +2021,15 @@ export default function App() {
             />
           ) : null}
 
+          {ownShiftActionShift ? (
+            <OwnShiftActionModal
+              shift={ownShiftActionShift}
+              onOfferShift={handleOpenOwnShiftOffer}
+              onRequestTimeOff={handleOpenOwnShiftTimeOff}
+              onClose={() => setOwnShiftActionShift(null)}
+            />
+          ) : null}
+
           {swapTradeTargetShift ? (
             <SwapTradeRequestModal
               targetShift={swapTradeTargetShift}
@@ -1893,6 +2049,14 @@ export default function App() {
               targetEmployees={offerTargetEmployees}
               onSubmit={handleSubmitSwapOffer}
               onClose={() => setSwapOfferShift(null)}
+            />
+          ) : null}
+
+          {timeOffShift ? (
+            <TimeOffRequestModal
+              shift={timeOffShift}
+              onSubmit={handleSubmitTimeOffRequest}
+              onClose={() => setTimeOffShift(null)}
             />
           ) : null}
         </>

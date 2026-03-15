@@ -150,6 +150,10 @@ for select
 using (
   id = auth.uid()
   or (
+    team_id = public.current_team_id()
+    and role = 'manager'
+  )
+  or (
     public.is_manager()
     and team_id = public.current_team_id()
   )
@@ -257,36 +261,65 @@ with check (
   requested_by = auth.uid()
   and target_employee_id is not null
   and target_employee_id <> auth.uid()
-  and status = 'pending_target'
-  and exists (
-    select 1
-    from public.employees requester
-    join public.employees target_employee on target_employee.id = public.swap_requests.target_employee_id
-    where requester.id = auth.uid()
-      and requester.team_id = public.current_team_id()
-      and target_employee.team_id = public.current_team_id()
-      and requester.department_id is not null
-      and requester.department_id = target_employee.department_id
-  )
   and (
     (
-      public.swap_requests.offered_shift_id is not null
+      status = 'pending_target'
       and exists (
         select 1
-        from public.shifts target_shift
-        join public.shifts offered_shift on offered_shift.id = public.swap_requests.offered_shift_id
-        where target_shift.id = public.swap_requests.shift_id
-          and target_shift.employee_id = public.swap_requests.target_employee_id
-          and offered_shift.employee_id = auth.uid()
+        from public.employees requester
+        join public.employees target_employee on target_employee.id = public.swap_requests.target_employee_id
+        where requester.id = auth.uid()
+          and requester.team_id = public.current_team_id()
+          and target_employee.team_id = public.current_team_id()
+          and requester.department_id is not null
+          and requester.department_id = target_employee.department_id
+      )
+      and (
+        (
+          public.swap_requests.offered_shift_id is not null
+          and exists (
+            select 1
+            from public.shifts target_shift
+            join public.shifts offered_shift on offered_shift.id = public.swap_requests.offered_shift_id
+            where target_shift.id = public.swap_requests.shift_id
+              and target_shift.employee_id = public.swap_requests.target_employee_id
+              and offered_shift.employee_id = auth.uid()
+          )
+        )
+        or (
+          public.swap_requests.offered_shift_id is null
+          and exists (
+            select 1
+            from public.shifts offered_shift
+            join public.employees target_employee on target_employee.id = public.swap_requests.target_employee_id
+            where offered_shift.id = public.swap_requests.shift_id
+              and offered_shift.employee_id = auth.uid()
+              and target_employee.role <> 'manager'
+          )
+        )
       )
     )
     or (
-      public.swap_requests.offered_shift_id is null
+      status = 'pending_manager'
+      and public.swap_requests.offered_shift_id is null
       and exists (
         select 1
-        from public.shifts offered_shift
-        where offered_shift.id = public.swap_requests.shift_id
-          and offered_shift.employee_id = auth.uid()
+        from public.employees requester
+        where requester.id = auth.uid()
+          and requester.team_id = public.current_team_id()
+      )
+      and exists (
+        select 1
+        from public.employees target_manager
+        where target_manager.id = public.swap_requests.target_employee_id
+          and target_manager.team_id = public.current_team_id()
+          and target_manager.role = 'manager'
+      )
+      and exists (
+        select 1
+        from public.shifts requested_shift
+        where requested_shift.id = public.swap_requests.shift_id
+          and requested_shift.employee_id = auth.uid()
       )
     )
   )

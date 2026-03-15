@@ -390,7 +390,7 @@ export async function removeShift(client, shiftId) {
 
 export async function createSwapRequest(
   client,
-  { shiftId, offeredShiftId, requestedBy, targetEmployeeId, reason }
+  { shiftId, offeredShiftId, requestedBy, targetEmployeeId, reason, status = 'pending_target' }
 ) {
   const { error } = await client.from('swap_requests').insert({
     shift_id: shiftId,
@@ -398,7 +398,7 @@ export async function createSwapRequest(
     requested_by: requestedBy,
     target_employee_id: targetEmployeeId ?? null,
     reason: reason || null,
-    status: 'pending_target'
+    status
   });
 
   if (error) {

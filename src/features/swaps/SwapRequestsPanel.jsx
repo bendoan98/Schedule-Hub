@@ -54,6 +54,7 @@ export default function SwapRequestsPanel({
           const requester = employeesById.get(request.requestedBy);
           const targetEmployee = employeesById.get(request.targetEmployeeId);
           const isTradeRequest = Boolean(request.offeredShiftId);
+          const isTimeOffRequest = !isTradeRequest && targetEmployee?.role === 'manager';
           const canPeerDecide =
             role === 'employee' &&
             request.status === 'pending_target' &&
@@ -76,6 +77,11 @@ export default function SwapRequestsPanel({
                   {offeredShift ? (
                     <p>Offers: {formatShiftLabel(offeredShift, requester?.name ?? 'Unknown Employee')}</p>
                   ) : null}
+                </>
+              ) : isTimeOffRequest ? (
+                <>
+                  <p>Time Off: {formatShiftLabel(requestedShift, requester?.name ?? 'Unknown Employee')}</p>
+                  <p>Manager: {targetEmployee?.name ?? 'Unknown Employee'}</p>
                 </>
               ) : (
                 <>
