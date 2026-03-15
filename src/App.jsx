@@ -1160,14 +1160,16 @@ export default function App() {
 
       {showCoreApp ? (
         <>
-          <DashboardStats
-            shifts={shifts}
-            swapRequests={swapRequests}
-            employees={employees}
-            weekStart={weekStart}
-            role={role}
-            currentEmployeeId={currentEmployeeId}
-          />
+          {!isManagerPage ? (
+            <DashboardStats
+              shifts={shifts}
+              swapRequests={swapRequests}
+              employees={employees}
+              weekStart={weekStart}
+              role={role}
+              currentEmployeeId={currentEmployeeId}
+            />
+          ) : null}
 
           {isManagerPage ? (
             <ManagerPage
