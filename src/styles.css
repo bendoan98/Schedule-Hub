@@ -1,14 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
 :root {
+  color-scheme: dark;
   --bg: #101417;
   --bg-elevated: #1a2025;
   --border: #2f3b44;
   --text: #eef4f9;
   --muted: #98a8b8;
   --accent: #6ee7b7;
+  --accent-hover: #85f0c6;
+  --accent-contrast: #05150f;
   --danger: #f87171;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --bg-grad-1: #1d2730;
+  --bg-grad-2: #0d1114;
+  --bg-grad-3: #0a0d0f;
+  --overlay-bg: #11181e;
+  --chip-bg-strength: 28%;
+  --shift-bg-strength: 18%;
   --color-0: #5cc8ff;
   --color-1: #ffadad;
   --color-2: #ffd166;
@@ -26,7 +35,12 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top right, #1d2730 0%, #0d1114 45%, #0a0d0f 100%);
+  background: radial-gradient(
+    circle at top right,
+    var(--bg-grad-1) 0%,
+    var(--bg-grad-2) 45%,
+    var(--bg-grad-3) 100%
+  );
   color: var(--text);
   font-family: 'IBM Plex Sans', sans-serif;
 }
@@ -89,12 +103,12 @@ button:disabled {
 
 button.primary {
   background: var(--accent);
-  color: #05150f;
+  color: var(--accent-contrast);
   border-color: transparent;
 }
 
 button.primary:not(:disabled):hover {
-  background: color-mix(in srgb, var(--accent) 88%, #ffffff 12%);
+  background: var(--accent-hover);
 }
 
 button.danger {
@@ -418,7 +432,7 @@ button.danger:not(:disabled):hover {
 .shift-chip {
   border-radius: 0.65rem;
   border: 1px solid color-mix(in srgb, currentColor 50%, transparent);
-  background: color-mix(in srgb, currentColor 18%, transparent);
+  background: color-mix(in srgb, currentColor var(--shift-bg-strength), transparent);
   padding: 0.45rem;
   display: grid;
   gap: 0.15rem;
@@ -637,7 +651,7 @@ button.danger:not(:disabled):hover {
   top: calc(100% + 0.4rem);
   right: 0;
   width: min(360px, 80vw);
-  background: #11181e;
+  background: var(--overlay-bg);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   box-shadow: var(--shadow);
@@ -651,7 +665,7 @@ button.danger:not(:disabled):hover {
   left: calc(100% + 0.45rem);
   right: auto;
   width: min(320px, 80vw);
-  background: #11181e;
+  background: var(--overlay-bg);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   box-shadow: var(--shadow);
@@ -675,7 +689,7 @@ button.danger:not(:disabled):hover {
   width: max-content;
   max-width: 250px;
   color: var(--muted);
-  background: #11181e;
+  background: var(--overlay-bg);
   border: 1px solid var(--border);
   border-radius: 0.55rem;
   padding: 0.35rem 0.5rem;
@@ -940,12 +954,42 @@ button.danger:not(:disabled):hover {
 
 .modal {
   width: min(500px, 100%);
-  background: #11181e;
+  background: var(--overlay-bg);
   border: 1px solid var(--border);
   border-radius: 1rem;
   padding: 1rem;
   display: grid;
   gap: 0.75rem;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f3f7fb;
+    --bg-elevated: #ffffff;
+    --border: #b9c9d8;
+    --text: #0f2233;
+    --muted: #455e73;
+    --accent: #1f8a5f;
+    --accent-hover: #176f4c;
+    --accent-contrast: #ffffff;
+    --danger: #b83c3c;
+    --shadow: 0 10px 26px rgba(19, 36, 51, 0.12);
+    --bg-grad-1: #f8fbff;
+    --bg-grad-2: #eef4fa;
+    --bg-grad-3: #e4ecf5;
+    --overlay-bg: #ffffff;
+    --chip-bg-strength: 20%;
+    --shift-bg-strength: 14%;
+    --color-0: #1c6fb8;
+    --color-1: #a53a3a;
+    --color-2: #8b6400;
+    --color-3: #2d7a26;
+    --color-4: #5b4ab0;
+    --color-5: #995013;
+    --color-6: #0f7185;
+    --color-7: #9a4038;
+  }
 }
 
 .modal-form {
@@ -960,42 +1004,42 @@ button.danger:not(:disabled):hover {
 
 .color-0 {
   color: var(--color-0);
-  background-color: color-mix(in srgb, var(--color-0) 28%, transparent);
+  background-color: color-mix(in srgb, var(--color-0) var(--chip-bg-strength), transparent);
 }
 
 .color-1 {
   color: var(--color-1);
-  background-color: color-mix(in srgb, var(--color-1) 28%, transparent);
+  background-color: color-mix(in srgb, var(--color-1) var(--chip-bg-strength), transparent);
 }
 
 .color-2 {
   color: var(--color-2);
-  background-color: color-mix(in srgb, var(--color-2) 28%, transparent);
+  background-color: color-mix(in srgb, var(--color-2) var(--chip-bg-strength), transparent);
 }
 
 .color-3 {
   color: var(--color-3);
-  background-color: color-mix(in srgb, var(--color-3) 28%, transparent);
+  background-color: color-mix(in srgb, var(--color-3) var(--chip-bg-strength), transparent);
 }
 
 .color-4 {
   color: var(--color-4);
-  background-color: color-mix(in srgb, var(--color-4) 28%, transparent);
+  background-color: color-mix(in srgb, var(--color-4) var(--chip-bg-strength), transparent);
 }
 
 .color-5 {
   color: var(--color-5);
-  background-color: color-mix(in srgb, var(--color-5) 28%, transparent);
+  background-color: color-mix(in srgb, var(--color-5) var(--chip-bg-strength), transparent);
 }
 
 .color-6 {
   color: var(--color-6);
-  background-color: color-mix(in srgb, var(--color-6) 28%, transparent);
+  background-color: color-mix(in srgb, var(--color-6) var(--chip-bg-strength), transparent);
 }
 
 .color-7 {
   color: var(--color-7);
-  background-color: color-mix(in srgb, var(--color-7) 28%, transparent);
+  background-color: color-mix(in srgb, var(--color-7) var(--chip-bg-strength), transparent);
 }
 
 @media (max-width: 1150px) {
