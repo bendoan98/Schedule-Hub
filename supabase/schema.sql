@@ -279,23 +279,40 @@ create index if not exists swap_requests_requester_idx on public.swap_requests (
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   team_id uuid references public.teams (id) on delete cascade,
+  recipient_employee_id uuid not null references public.employees (id) on delete cascade,
+  sender_employee_id uuid references public.employees (id) on delete set null,
   target_employee_id uuid references public.employees (id) on delete cascade,
   title text not null,
   body text not null,
   read boolean not null default false,
+  read_at timestamptz,
   created_at timestamptz not null default timezone('utc', now())
 );
 
 alter table public.notifications
-  add column if not exists team_id uuid references public.teams (id) on delete cascade;
+  add column if not exists team_id uuid references public.teams (id) on delete cascade,
+  add column if not exists recipient_employee_id uuid references public.employees (id) on delete cascade,
+  add column if not exists sender_employee_id uuid references public.employees (id) on delete set null,
+  add column if not exists read_at timestamptz;
+
+update public.notifications n
+set recipient_employee_id = n.target_employee_id
+where n.recipient_employee_id is null
+  and n.target_employee_id is not null;
 
 update public.notifications n
 set team_id = e.team_id
 from public.employees e
 where n.team_id is null
-  and n.target_employee_id = e.id;
+  and e.id = coalesce(n.recipient_employee_id, n.target_employee_id);
+
+update public.notifications
+set read_at = timezone('utc', now())
+where read = true
+  and read_at is null;
 
 create index if not exists notifications_team_idx on public.notifications (team_id, created_at desc);
+create index if not exists notifications_recipient_idx on public.notifications (recipient_employee_id, created_at desc);
 
 create table if not exists public.message_posts (
   id uuid primary key default gen_random_uuid(),

@@ -314,14 +314,14 @@ export default function App() {
 
       const insertedCount = await insertCsvShifts(supabase, validShifts, importWeekStart);
 
-        if (team?.id) {
-          const employeeNotifications = employees
-            .filter((employee) => employee.role === 'employee' && employee.id !== currentEmployeeId)
-            .map((employee) => ({
-              teamId: team.id,
-              targetEmployeeId: employee.id,
-              title: 'New Schedule Available',
-              body: `A new schedule was published for the week of ${importWeekStart}.`
+      if (team?.id) {
+        const employeeNotifications = employees
+          .filter((employee) => employee.role === 'employee' && employee.id !== currentEmployeeId)
+          .map((employee) => ({
+            teamId: team.id,
+            targetEmployeeId: employee.id,
+            title: 'New Schedule Available',
+            body: `A new schedule was published for the week of ${importWeekStart}.`
           }));
 
         await insertNotifications(supabase, employeeNotifications);
@@ -536,7 +536,7 @@ export default function App() {
   async function handleMarkAllRead() {
     if (isSupabaseMode && session && supabase) {
       try {
-        await markAllNotificationsRead(supabase, { role, currentEmployeeId });
+        await markAllNotificationsRead(supabase);
         await loadSupabaseData();
       } catch (error) {
         setAppMessage(error.message);

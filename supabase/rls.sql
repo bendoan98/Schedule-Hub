@@ -86,6 +86,8 @@ drop policy if exists "notifications_select_team_scope" on public.notifications;
 drop policy if exists "notifications_modify_manager_same_team" on public.notifications;
 drop policy if exists "notifications_insert_team_member_targeted" on public.notifications;
 drop policy if exists "notifications_update_target_same_team" on public.notifications;
+drop policy if exists "notifications_select_recipient_scope" on public.notifications;
+drop policy if exists "notifications_update_recipient_same_team" on public.notifications;
 drop policy if exists "notifications_select_target_or_all" on public.notifications;
 drop policy if exists "notifications_modify_manager_only" on public.notifications;
 
@@ -285,28 +287,12 @@ with check (
 );
 
 -- Notifications policies
-create policy "notifications_select_team_scope"
+create policy "notifications_select_recipient_scope"
 on public.notifications
 for select
 using (
   team_id = public.current_team_id()
-  and (
-    target_employee_id is null
-    or target_employee_id = auth.uid()
-    or public.is_manager()
-  )
-);
-
-create policy "notifications_modify_manager_same_team"
-on public.notifications
-for all
-using (
-  public.is_manager()
-  and team_id = public.current_team_id()
-)
-with check (
-  public.is_manager()
-  and team_id = public.current_team_id()
+  and recipient_employee_id = auth.uid()
 );
 
 create policy "notifications_insert_team_member_targeted"
@@ -315,37 +301,31 @@ for insert
 with check (
   auth.uid() is not null
   and team_id = public.current_team_id()
-  and target_employee_id is not null
+  and recipient_employee_id is not null
   and exists (
     select 1
-    from public.employees target
-    where target.id = public.notifications.target_employee_id
-      and target.team_id = public.current_team_id()
+    from public.employees recipient
+    where recipient.id = public.notifications.recipient_employee_id
+      and recipient.team_id = public.current_team_id()
       and (
         public.is_manager()
-        or target.role = 'manager'
+        or recipient.role = 'manager'
       )
   )
 );
 
-create policy "notifications_update_target_same_team"
+create policy "notifications_update_recipient_same_team"
 on public.notifications
 for update
 using (
   auth.uid() is not null
   and team_id = public.current_team_id()
-  and (
-    target_employee_id = auth.uid()
-    or target_employee_id is null
-  )
+  and recipient_employee_id = auth.uid()
 )
 with check (
   auth.uid() is not null
   and team_id = public.current_team_id()
-  and (
-    target_employee_id = auth.uid()
-    or target_employee_id is null
-  )
+  and recipient_employee_id = auth.uid()
 );
 
 -- Message board policies

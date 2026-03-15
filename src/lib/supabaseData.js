@@ -60,10 +60,11 @@ function mapNotification(row) {
   return {
     id: row.id,
     teamId: row.team_id,
-    targetEmployeeId: row.target_employee_id,
+    targetEmployeeId: row.recipient_employee_id,
+    senderEmployeeId: row.sender_employee_id ?? null,
     title: row.title,
     body: row.body,
-    read: row.read,
+    read: Boolean(row.read_at),
     createdAt: row.created_at
   };
 }
@@ -82,10 +83,10 @@ function mapMessagePost(row) {
 function normalizeNotificationPayload(payload) {
   return {
     team_id: payload.teamId,
-    target_employee_id: payload.targetEmployeeId ?? null,
+    recipient_employee_id: payload.targetEmployeeId ?? null,
+    sender_employee_id: payload.senderEmployeeId ?? null,
     title: payload.title,
-    body: payload.body,
-    read: false
+    body: payload.body
   };
 }
 
@@ -138,7 +139,7 @@ export async function fetchAppData(client) {
       .order('created_at', { ascending: false }),
     client
       .from('notifications')
-      .select('id, team_id, target_employee_id, title, body, read, created_at')
+      .select('id, team_id, recipient_employee_id, sender_employee_id, title, body, read_at, created_at')
       .order('created_at', { ascending: false }),
     client
       .from('message_posts')
@@ -337,14 +338,11 @@ export async function setSwapRequestStatus(client, requestId, status) {
   }
 }
 
-export async function markAllNotificationsRead(client, { role, currentEmployeeId }) {
-  let query = client.from('notifications').update({ read: true }).eq('read', false);
-
-  if (role !== 'manager') {
-    query = query.or(`target_employee_id.eq.${currentEmployeeId},target_employee_id.is.null`);
-  }
-
-  const { error } = await query;
+export async function markAllNotificationsRead(client) {
+  const { error } = await client
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .is('read_at', null);
 
   if (error) {
     throw normalizeError(error, 'Unable to mark notifications as read.');
