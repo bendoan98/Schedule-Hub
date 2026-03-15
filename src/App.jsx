@@ -16,18 +16,29 @@ import {
 } from './data/mockData';
 import { hasSupabaseCredentials, supabase } from './lib/supabaseClient';
 import {
+  createDepartment,
   createSwapRequest,
   createTeamForCurrentUser,
+  deleteDepartment,
+  ensureDepartment,
   fetchAppData,
   insertCsvShifts,
   insertMessagePost,
   joinTeamWithInviteCode,
   markAllNotificationsRead,
+  renameDepartment,
+  replaceDepartmentForTeam,
   removeShift,
   setSwapRequestStatus,
   updateEmployeeDepartment,
   upsertShift
 } from './lib/supabaseData';
+import {
+  DEFAULT_DEPARTMENT,
+  buildDepartmentList,
+  normalizeDepartmentName,
+  toStoredDepartment
+} from './utils/department';
 import { getMonday, toIsoDate } from './utils/date';
 import { newId } from './utils/id';
 
@@ -37,9 +48,11 @@ const PAGE_MODES = ['schedule', 'manager'];
 
 export default function App() {
   const isSupabaseMode = Boolean(hasSupabaseCredentials && supabase);
+  const localDepartments = buildDepartmentList(mockEmployees.map((employee) => employee.department));
 
   const [employees, setEmployees] = useState(isSupabaseMode ? [] : mockEmployees);
   const [team, setTeam] = useState(isSupabaseMode ? null : { id: 'local-team', name: 'Demo Team' });
+  const [teamDepartments, setTeamDepartments] = useState(isSupabaseMode ? [] : localDepartments);
   const [shifts, setShifts] = useState(isSupabaseMode ? [] : mockShifts);
   const [swapRequests, setSwapRequests] = useState(isSupabaseMode ? [] : mockSwapRequests);
   const [notifications, setNotifications] = useState(isSupabaseMode ? [] : mockNotifications);
@@ -61,6 +74,7 @@ export default function App() {
   const [teamNameInput, setTeamNameInput] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [updatingDepartmentEmployeeId, setUpdatingDepartmentEmployeeId] = useState('');
+  const [departmentActionLoading, setDepartmentActionLoading] = useState(false);
   const [activePage, setActivePage] = useState('schedule');
 
   const [authError, setAuthError] = useState('');
@@ -77,6 +91,10 @@ export default function App() {
 
     return employees.filter((employee) => employee.id === currentEmployeeId);
   }, [employees, role, currentEmployeeId]);
+
+  const departments = useMemo(() => {
+    return buildDepartmentList(teamDepartments ?? []);
+  }, [teamDepartments]);
 
   const postsWithAuthors = useMemo(() => {
     const employeesById = new Map(employees.map((employee) => [employee.id, employee.name]));
@@ -107,6 +125,7 @@ export default function App() {
 
       setEmployees(snapshot.employees);
       setTeam(snapshot.team);
+      setTeamDepartments(snapshot.departments ?? []);
       setShifts(snapshot.shifts);
       setSwapRequests(snapshot.swapRequests);
       setNotifications(snapshot.notifications);
@@ -162,6 +181,7 @@ export default function App() {
       if (!nextSession) {
         setEmployees([]);
         setTeam(null);
+        setTeamDepartments([]);
         setShifts([]);
         setSwapRequests([]);
         setNotifications([]);
@@ -192,6 +212,7 @@ export default function App() {
     const channel = supabase
       .channel(`schedule-hub-realtime-${session.user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => loadSupabaseData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'departments' }, () => loadSupabaseData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => loadSupabaseData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => loadSupabaseData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'swap_requests' }, () => loadSupabaseData())
@@ -485,12 +506,17 @@ export default function App() {
   }
 
   async function handleUpdateEmployeeDepartment(employeeId, departmentValue) {
-    const nextDepartment = departmentValue.trim() || 'UNASSIGNED';
+    const nextDepartment = toStoredDepartment(departmentValue);
     setUpdatingDepartmentEmployeeId(employeeId);
 
     if (isSupabaseMode && session && supabase) {
       try {
         await updateEmployeeDepartment(supabase, employeeId, nextDepartment);
+
+        if (team?.id && !departments.includes(nextDepartment)) {
+          await ensureDepartment(supabase, team.id, nextDepartment);
+        }
+
         await loadSupabaseData();
         setAppMessage('Department updated.');
       } catch (error) {
@@ -515,8 +541,172 @@ export default function App() {
       })
     );
 
+    setTeamDepartments((previous) => buildDepartmentList([...(previous ?? []), nextDepartment]));
+
     setUpdatingDepartmentEmployeeId('');
     addLocalNotification('Department Updated', 'Employee department was updated.');
+  }
+
+  async function handleAddDepartment(departmentName) {
+    const normalizedDepartment = normalizeDepartmentName(departmentName);
+
+    if (!normalizedDepartment || departments.includes(normalizedDepartment)) {
+      return;
+    }
+
+    const nextDepartments = buildDepartmentList([...departments, normalizedDepartment]);
+    setDepartmentActionLoading(true);
+
+    if (isSupabaseMode && session && supabase) {
+      try {
+        if (!team?.id) {
+          throw new Error('Join or create a team before managing departments.');
+        }
+
+        await createDepartment(supabase, team.id, normalizedDepartment);
+        await loadSupabaseData();
+        setAppMessage(`Department ${normalizedDepartment} added.`);
+      } catch (error) {
+        setAppMessage(error.message);
+      } finally {
+        setDepartmentActionLoading(false);
+      }
+
+      return;
+    }
+
+    setTeamDepartments(nextDepartments);
+
+    setDepartmentActionLoading(false);
+    addLocalNotification('Department Added', `${normalizedDepartment} was added to the team list.`);
+  }
+
+  async function handleRenameDepartment(currentDepartment, nextDepartmentName) {
+    const sourceDepartment = toStoredDepartment(currentDepartment);
+    const targetDepartment = toStoredDepartment(nextDepartmentName);
+
+    if (
+      sourceDepartment === DEFAULT_DEPARTMENT ||
+      sourceDepartment === targetDepartment ||
+      departments.includes(targetDepartment)
+    ) {
+      return;
+    }
+
+    const nextDepartments = buildDepartmentList(
+      departments.map((departmentName) => {
+        if (departmentName === sourceDepartment) {
+          return targetDepartment;
+        }
+
+        return departmentName;
+      })
+    );
+
+    setDepartmentActionLoading(true);
+
+    if (isSupabaseMode && session && supabase) {
+      try {
+        if (!team?.id) {
+          throw new Error('Join or create a team before managing departments.');
+        }
+
+        await replaceDepartmentForTeam(supabase, {
+          teamId: team.id,
+          fromDepartment: sourceDepartment,
+          toDepartment: targetDepartment
+        });
+        await renameDepartment(supabase, {
+          teamId: team.id,
+          fromName: sourceDepartment,
+          toName: targetDepartment
+        });
+        await loadSupabaseData();
+        setAppMessage(`Department ${sourceDepartment} renamed to ${targetDepartment}.`);
+      } catch (error) {
+        setAppMessage(error.message);
+      } finally {
+        setDepartmentActionLoading(false);
+      }
+
+      return;
+    }
+
+    setEmployees((previous) =>
+      previous.map((employee) => {
+        if (toStoredDepartment(employee.department) !== sourceDepartment) {
+          return employee;
+        }
+
+        return {
+          ...employee,
+          department: targetDepartment
+        };
+      })
+    );
+
+    setTeamDepartments(nextDepartments);
+
+    setDepartmentActionLoading(false);
+    addLocalNotification('Department Renamed', `${sourceDepartment} is now ${targetDepartment}.`);
+  }
+
+  async function handleDeleteDepartment(departmentName) {
+    const sourceDepartment = toStoredDepartment(departmentName);
+
+    if (sourceDepartment === DEFAULT_DEPARTMENT) {
+      return;
+    }
+
+    const nextDepartments = buildDepartmentList(
+      departments.filter((departmentValue) => departmentValue !== sourceDepartment)
+    );
+
+    setDepartmentActionLoading(true);
+
+    if (isSupabaseMode && session && supabase) {
+      try {
+        if (!team?.id) {
+          throw new Error('Join or create a team before managing departments.');
+        }
+
+        await replaceDepartmentForTeam(supabase, {
+          teamId: team.id,
+          fromDepartment: sourceDepartment,
+          toDepartment: DEFAULT_DEPARTMENT
+        });
+        await deleteDepartment(supabase, {
+          teamId: team.id,
+          name: sourceDepartment
+        });
+        await loadSupabaseData();
+        setAppMessage(`Department ${sourceDepartment} deleted.`);
+      } catch (error) {
+        setAppMessage(error.message);
+      } finally {
+        setDepartmentActionLoading(false);
+      }
+
+      return;
+    }
+
+    setEmployees((previous) =>
+      previous.map((employee) => {
+        if (toStoredDepartment(employee.department) !== sourceDepartment) {
+          return employee;
+        }
+
+        return {
+          ...employee,
+          department: DEFAULT_DEPARTMENT
+        };
+      })
+    );
+
+    setTeamDepartments(nextDepartments);
+
+    setDepartmentActionLoading(false);
+    addLocalNotification('Department Deleted', `${sourceDepartment} moved to ${DEFAULT_DEPARTMENT}.`);
   }
 
   async function handleSignIn(event) {
@@ -547,7 +737,7 @@ export default function App() {
     }
 
     const trimmedName = fullName.trim();
-    const normalizedDepartment = department.trim() || 'UNASSIGNED';
+    const normalizedDepartment = toStoredDepartment(department);
 
     if (!trimmedName) {
       setAuthError('Full name is required.');
@@ -950,8 +1140,13 @@ export default function App() {
           {isManagerPage ? (
             <ManagerPage
               weekStart={weekStart}
+              departments={departments}
               employees={employees}
               onImport={handleCsvImport}
+              onAddDepartment={handleAddDepartment}
+              onRenameDepartment={handleRenameDepartment}
+              onDeleteDepartment={handleDeleteDepartment}
+              departmentActionLoading={departmentActionLoading}
               onUpdateDepartment={handleUpdateEmployeeDepartment}
               updatingEmployeeId={updatingDepartmentEmployeeId}
               currentEmployeeId={currentEmployeeId}

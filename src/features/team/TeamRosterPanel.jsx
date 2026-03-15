@@ -1,12 +1,9 @@
 import { useMemo, useState } from 'react';
-
-function normalizeDepartment(value) {
-  const normalized = value.trim();
-  return normalized || 'UNASSIGNED';
-}
+import { buildDepartmentList, toStoredDepartment } from '../../utils/department';
 
 export default function TeamRosterPanel({
   employees,
+  departments,
   onUpdateDepartment,
   updatingEmployeeId,
   managerEmployeeId
@@ -19,6 +16,11 @@ export default function TeamRosterPanel({
     );
   }, [employees, managerEmployeeId]);
 
+  const departmentOptions = useMemo(
+    () => buildDepartmentList(departments ?? []),
+    [departments]
+  );
+
   function getDraftDepartment(employee) {
     return drafts[employee.id] ?? employee.department ?? 'UNASSIGNED';
   }
@@ -26,9 +28,9 @@ export default function TeamRosterPanel({
   async function handleSubmit(event, employee) {
     event.preventDefault();
 
-    const nextDepartment = normalizeDepartment(getDraftDepartment(employee));
+    const nextDepartment = toStoredDepartment(getDraftDepartment(employee));
 
-    if (nextDepartment === (employee.department ?? 'UNASSIGNED')) {
+    if (nextDepartment === toStoredDepartment(employee.department)) {
       return;
     }
 
@@ -43,15 +45,15 @@ export default function TeamRosterPanel({
   return (
     <section className="panel">
       <h3>Team Roster</h3>
-      <p className="muted">Managers can update team departments, including their own.</p>
+      <p className="muted">Managers can update team departments, including their own, using the available department list.</p>
 
       {editableRows.length === 0 ? <p className="muted">No team members found.</p> : null}
 
       <div className="roster-list">
         {editableRows.map((employee) => {
           const draftDepartment = getDraftDepartment(employee);
-          const nextDepartment = normalizeDepartment(draftDepartment);
-          const unchanged = nextDepartment === (employee.department ?? 'UNASSIGNED');
+          const nextDepartment = toStoredDepartment(draftDepartment);
+          const unchanged = nextDepartment === toStoredDepartment(employee.department);
           const isSaving = updatingEmployeeId === employee.id;
 
           return (
@@ -64,8 +66,7 @@ export default function TeamRosterPanel({
               <form className="roster-form" onSubmit={(event) => handleSubmit(event, employee)}>
                 <label>
                   Department
-                  <input
-                    type="text"
+                  <select
                     value={draftDepartment}
                     onChange={(event) => {
                       const value = event.target.value;
@@ -74,8 +75,13 @@ export default function TeamRosterPanel({
                         [employee.id]: value
                       }));
                     }}
-                    placeholder="UNASSIGNED"
-                  />
+                  >
+                    {departmentOptions.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
                 <button type="submit" disabled={unchanged || isSaving}>

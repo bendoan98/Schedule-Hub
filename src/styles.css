@@ -273,6 +273,17 @@ button.danger {
   align-items: start;
 }
 
+.manager-page-grid-top {
+  grid-template-columns: minmax(320px, 430px) minmax(420px, 1fr);
+}
+
+.manager-page-team-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
 .calendar-header-row {
   display: flex;
   justify-content: space-between;
@@ -438,6 +449,51 @@ button.danger {
 }
 
 .roster-form label {
+  flex: 1;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+}
+
+.department-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.department-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.department-item {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.department-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.department-item-header small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.department-add-form,
+.department-rename-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.department-add-form label,
+.department-rename-form label {
   flex: 1;
   display: grid;
   gap: 0.3rem;
@@ -725,6 +781,11 @@ button.danger {
 }
 
 @media (max-width: 1150px) {
+  .manager-page-grid-top,
+  .manager-page-team-row {
+    grid-template-columns: 1fr;
+  }
+
   .calendar-grid {
     grid-template-columns: 180px repeat(7, minmax(120px, 1fr));
   }
@@ -749,6 +810,12 @@ button.danger {
   }
 
   .roster-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .department-add-form,
+  .department-rename-form {
     flex-direction: column;
     align-items: stretch;
   }

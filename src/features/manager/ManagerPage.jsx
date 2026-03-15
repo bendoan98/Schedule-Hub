@@ -1,11 +1,17 @@
 import CsvImportForm from '../schedule/CsvImportForm';
 import TeamRosterPanel from '../team/TeamRosterPanel';
+import DepartmentManagerPanel from '../team/DepartmentManagerPanel';
 import SwapRequestsPanel from '../swaps/SwapRequestsPanel';
 
 export default function ManagerPage({
   weekStart,
+  departments,
   employees,
   onImport,
+  onAddDepartment,
+  onRenameDepartment,
+  onDeleteDepartment,
+  departmentActionLoading,
   onUpdateDepartment,
   updatingEmployeeId,
   currentEmployeeId,
@@ -20,15 +26,8 @@ export default function ManagerPage({
         <p>Manage team members, process requests, and import weekly schedules.</p>
       </header>
 
-      <div className="manager-page-grid">
+      <div className="manager-page-grid manager-page-grid-top">
         <CsvImportForm weekStart={weekStart} employees={employees} onImport={onImport} />
-
-        <TeamRosterPanel
-          employees={employees}
-          onUpdateDepartment={onUpdateDepartment}
-          updatingEmployeeId={updatingEmployeeId}
-          managerEmployeeId={currentEmployeeId}
-        />
 
         <SwapRequestsPanel
           title="Schedule Requests"
@@ -38,6 +37,25 @@ export default function ManagerPage({
           shifts={shifts}
           employees={employees}
           onDecision={onDecision}
+        />
+      </div>
+
+      <div className="manager-page-team-row">
+        <DepartmentManagerPanel
+          departments={departments}
+          employees={employees}
+          onAddDepartment={onAddDepartment}
+          onRenameDepartment={onRenameDepartment}
+          onDeleteDepartment={onDeleteDepartment}
+          isSaving={departmentActionLoading}
+        />
+
+        <TeamRosterPanel
+          employees={employees}
+          departments={departments}
+          onUpdateDepartment={onUpdateDepartment}
+          updatingEmployeeId={updatingEmployeeId}
+          managerEmployeeId={currentEmployeeId}
         />
       </div>
     </section>
