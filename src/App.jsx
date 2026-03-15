@@ -69,7 +69,6 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [department, setDepartment] = useState('');
   const [teamSetupMode, setTeamSetupMode] = useState('create');
   const [teamNameInput, setTeamNameInput] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
@@ -737,20 +736,8 @@ export default function App() {
     }
 
     const trimmedName = fullName.trim();
-    const normalizedDepartment = toStoredDepartment(department);
-
     if (!trimmedName) {
       setAuthError('Full name is required.');
-      return;
-    }
-
-    if (teamSetupMode === 'create' && !teamNameInput.trim()) {
-      setAuthError('Team name is required to create a team.');
-      return;
-    }
-
-    if (teamSetupMode === 'join' && !inviteCodeInput.trim()) {
-      setAuthError('Invite code is required to join a team.');
       return;
     }
 
@@ -762,8 +749,7 @@ export default function App() {
       password,
       options: {
         data: {
-          name: trimmedName,
-          department: normalizedDepartment
+          name: trimmedName
         }
       }
     });
@@ -775,21 +761,10 @@ export default function App() {
 
     setPassword('');
     setFullName('');
-    setDepartment('');
 
     if (data.session) {
-      try {
-        await completeTeamSetup({
-          mode: teamSetupMode,
-          teamName: teamNameInput,
-          inviteCode: inviteCodeInput
-        });
-
-        await loadSupabaseData();
-      } catch (setupError) {
-        setAuthError(setupError.message);
-        setAppMessage('Account created. Finish team setup below.');
-      }
+      await loadSupabaseData();
+      setAppMessage('Account created. Set up your team to continue.');
 
       return;
     }
@@ -941,7 +916,7 @@ export default function App() {
           <h3>{authMode === 'sign_up' ? 'Create Account' : 'Sign In to Supabase'}</h3>
           <p>
             {authMode === 'sign_up'
-              ? 'During sign-up, choose to create a team or join one with an invite code.'
+              ? 'Create your account with name, email, and password.'
               : 'Sign in with your email and password.'}
           </p>
 
@@ -1003,60 +978,6 @@ export default function App() {
                 autoComplete={authMode === 'sign_up' ? 'new-password' : 'current-password'}
               />
             </label>
-
-            {authMode === 'sign_up' ? (
-              <label>
-                Department (optional)
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(event) => setDepartment(event.target.value)}
-                  placeholder="UNASSIGNED"
-                  autoComplete="organization"
-                />
-              </label>
-            ) : null}
-
-            {authMode === 'sign_up' ? (
-              <>
-                <div className="auth-mode-toggle" role="tablist" aria-label="Team setup mode">
-                  {TEAM_MODES.map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      className={teamSetupMode === mode ? 'active' : ''}
-                      onClick={() => setTeamSetupMode(mode)}
-                    >
-                      {mode === 'create' ? 'Create Team' : 'Join Team'}
-                    </button>
-                  ))}
-                </div>
-
-                {teamSetupMode === 'create' ? (
-                  <label>
-                    Team Name
-                    <input
-                      type="text"
-                      value={teamNameInput}
-                      onChange={(event) => setTeamNameInput(event.target.value)}
-                      placeholder="Downtown Ops"
-                      required
-                    />
-                  </label>
-                ) : (
-                  <label>
-                    Invite Code
-                    <input
-                      type="text"
-                      value={inviteCodeInput}
-                      onChange={(event) => setInviteCodeInput(event.target.value.toUpperCase())}
-                      placeholder="ABC12345"
-                      required
-                    />
-                  </label>
-                )}
-              </>
-            ) : null}
 
             <button type="submit" className="primary">
               {authMode === 'sign_up' ? 'Create Account' : 'Sign In'}
