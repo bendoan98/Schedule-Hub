@@ -50,7 +50,9 @@ function mapSwapRequest(row) {
   return {
     id: row.id,
     shiftId: row.shift_id,
+    offeredShiftId: row.offered_shift_id ?? null,
     requestedBy: row.requested_by,
+    targetEmployeeId: row.target_employee_id ?? null,
     reason: row.reason ?? '',
     status: row.status,
     createdAt: row.created_at
@@ -136,7 +138,7 @@ export async function fetchAppData(client) {
       .order('week_start', { ascending: false }),
     client
       .from('swap_requests')
-      .select('id, shift_id, requested_by, reason, status, created_at')
+      .select('id, shift_id, offered_shift_id, requested_by, target_employee_id, reason, status, created_at')
       .order('created_at', { ascending: false }),
     client
       .from('notifications')
@@ -386,12 +388,17 @@ export async function removeShift(client, shiftId) {
   }
 }
 
-export async function createSwapRequest(client, { shiftId, requestedBy, reason }) {
+export async function createSwapRequest(
+  client,
+  { shiftId, offeredShiftId, requestedBy, targetEmployeeId, reason }
+) {
   const { error } = await client.from('swap_requests').insert({
     shift_id: shiftId,
+    offered_shift_id: offeredShiftId ?? null,
     requested_by: requestedBy,
+    target_employee_id: targetEmployeeId ?? null,
     reason: reason || null,
-    status: 'pending'
+    status: 'pending_target'
   });
 
   if (error) {
