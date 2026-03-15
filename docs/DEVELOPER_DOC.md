@@ -72,6 +72,16 @@ Coverage output:
 - `coverage/coverage-summary.json`
 - console text report
 
+## CI (GitHub Actions)
+Workflow file:
+- `.github/workflows/ci.yml`
+
+Current CI steps:
+1. `npm ci`
+2. `npm run build`
+3. `npm run coverage`
+4. upload `coverage/` as a workflow artifact
+
 ## Adding New Tests
 1. Create tests next to the source file using `*.test.js`.
 2. Import Vitest helpers:
