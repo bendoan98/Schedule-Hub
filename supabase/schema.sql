@@ -66,7 +66,7 @@ create table if not exists public.employees (
   name text not null,
   email text not null unique,
   role text not null default 'employee' check (role in ('manager', 'employee')),
-  department text not null default 'UNASSIGNED',
+  department text,
   color_index integer not null default 0 check (color_index between 0 and 7),
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -74,6 +74,8 @@ create table if not exists public.employees (
 alter table public.employees
   add column if not exists team_id uuid references public.teams (id) on delete set null;
 alter table public.employees alter column role set default 'employee';
+alter table public.employees alter column department drop not null;
+alter table public.employees alter column department drop default;
 
 create index if not exists employees_team_idx on public.employees (team_id);
 
@@ -102,7 +104,7 @@ begin
     ),
     new.email,
     'employee',
-    coalesce(nullif(trim(new.raw_user_meta_data->>'department'), ''), 'UNASSIGNED'),
+    nullif(trim(new.raw_user_meta_data->>'department'), ''),
     floor(random() * 8)::integer
   )
   on conflict (id) do update
