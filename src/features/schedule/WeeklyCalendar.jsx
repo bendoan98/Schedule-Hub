@@ -21,7 +21,9 @@ export default function WeeklyCalendar({
   const headers = getWeekHeaders(weekStart);
 
   const pendingShiftIds = new Set(
-    swapRequests.filter((request) => request.status === 'pending').map((request) => request.shiftId)
+    swapRequests
+      .filter((request) => request.status?.startsWith('pending'))
+      .flatMap((request) => [request.shiftId, request.offeredShiftId].filter(Boolean))
   );
 
   function getShiftsForCell(employeeId, day) {
@@ -105,37 +107,30 @@ export default function WeeklyCalendar({
                   ) : null}
 
                   {cellShifts.map((shift) => {
-                    const canRequestSwap = role === 'employee' && shift.employeeId === currentEmployeeId;
+                    const canOpenShift =
+                      role === 'manager' || (role === 'employee' && shift.employeeId !== currentEmployeeId);
                     const pending = pendingShiftIds.has(shift.id);
 
                     return (
                       <article
                         key={shift.id}
                         className={`shift-chip color-${employee.colorIndex % 8} ${pending ? 'pending' : ''}`}
-                        onClick={() => onShiftClick(shift)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            onShiftClick(shift);
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
+                        onClick={canOpenShift ? () => onShiftClick(shift) : undefined}
+                        onKeyDown={
+                          canOpenShift
+                            ? (event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  onShiftClick(shift);
+                                }
+                              }
+                            : undefined
+                        }
+                        role={canOpenShift ? 'button' : undefined}
+                        tabIndex={canOpenShift ? 0 : undefined}
                       >
                         <p>{shift.startTime} - {shift.endTime}</p>
                         {pending ? <small>PENDING</small> : null}
-                        {canRequestSwap && !pending ? (
-                          <button
-                            type="button"
-                            className="inline-link"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onRequestSwap(shift);
-                            }}
-                          >
-                            Request Swap
-                          </button>
-                        ) : null}
                       </article>
                     );
                   })}
