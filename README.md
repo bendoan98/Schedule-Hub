@@ -170,16 +170,16 @@ const supabase = createClient(
 
 ## Roadmap
 
-- [ ] CSV import and parsing
-- [ ] Weekly calendar grid
-- [ ] Role-based access (manager / employee)
-- [ ] Shift editing and management
+- [x] CSV import and parsing
+- [x] Weekly calendar grid
+- [x] Role-based access (manager / employee)
+- [x] Shift editing and management
 - [ ] Shift swap requests
 - [ ] In-app notifications
-- [ ] Wire frontend to Supabase (auth, data, realtime)
+- [x] Wire frontend to Supabase (auth, data, realtime)
 - [ ] Supabase Edge Function for swap email notifications
-- [ ] Message board for team announcements
-- [ ] Export schedule to Apple Calendar (.ics) or Google Calendar
+- [x] Message board for team announcements
+- [x] Export schedule to Apple Calendar (.ics) or Google Calendar
 - [ ] Mobile-optimized layout
 - [ ] Monthly overview
 - [ ] Shift conflict detection
