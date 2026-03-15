@@ -13,6 +13,40 @@ create table if not exists public.employees (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+-- Automatically provision an employee profile when a new auth user signs up.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.employees (id, name, email, role, department, color_index)
+  values (
+    new.id,
+    coalesce(
+      nullif(trim(new.raw_user_meta_data->>'name'), ''),
+      split_part(new.email, '@', 1)
+    ),
+    new.email,
+    'employee',
+    coalesce(nullif(trim(new.raw_user_meta_data->>'department'), ''), 'UNASSIGNED'),
+    floor(random() * 8)::integer
+  )
+  on conflict (id) do update
+    set name = excluded.name,
+        email = excluded.email,
+        department = excluded.department;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute procedure public.handle_new_user();
+
 create table if not exists public.shifts (
   id uuid primary key default gen_random_uuid(),
   employee_id uuid not null references public.employees (id) on delete cascade,

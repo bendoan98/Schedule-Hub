@@ -24,10 +24,10 @@ npm install
 2. Configure environment:
 
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-3. Add your values in `.env`:
+3. Add your values in `.env.local`:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
@@ -48,10 +48,11 @@ Run SQL in this order:
 
 If your auth users already exist, replace placeholder UUIDs in `seed.sql` with real `auth.users.id` values.
 
-## Current Integration Mode
+`schema.sql` includes an auth trigger that auto-creates an `employees` row for new signups (default role: `employee`).
 
-The template runs with mock data by default and is ready to connect to Supabase. To fully enable real data:
+## Current Integration
 
-- Replace local state handlers in `src/App.jsx` with `supabase.from(...)` operations.
-- Add realtime subscriptions for `shifts`, `swap_requests`, and `notifications`.
-- Add Supabase Auth session handling and map `auth.uid()` to `employees.id`.
+The template supports both:
+
+- Mock mode when Supabase env vars are missing.
+- Live Supabase mode with email/password sign-in, sign-up, CRUD, and realtime sync.

@@ -467,6 +467,16 @@ button.danger {
   max-width: 420px;
 }
 
+.auth-mode-toggle {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.auth-mode-toggle button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .board-form label,
 .modal-form label,
 .header-actions label {

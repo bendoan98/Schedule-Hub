@@ -46,8 +46,11 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(isSupabaseMode);
   const [dataLoading, setDataLoading] = useState(false);
+  const [authMode, setAuthMode] = useState('sign_in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [department, setDepartment] = useState('');
   const [authError, setAuthError] = useState('');
   const [appMessage, setAppMessage] = useState('');
 
@@ -451,6 +454,7 @@ export default function App() {
     }
 
     setAuthError('');
+    setAppMessage('');
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -460,6 +464,53 @@ export default function App() {
     }
 
     setPassword('');
+  }
+
+  async function handleSignUp(event) {
+    event.preventDefault();
+
+    if (!supabase) {
+      return;
+    }
+
+    const trimmedName = fullName.trim();
+    const normalizedDepartment = department.trim() || 'UNASSIGNED';
+
+    if (!trimmedName) {
+      setAuthError('Full name is required.');
+      return;
+    }
+
+    setAuthError('');
+    setAppMessage('');
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: trimmedName,
+          department: normalizedDepartment
+        }
+      }
+    });
+
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+
+    setPassword('');
+    setFullName('');
+    setDepartment('');
+
+    if (data.session) {
+      setAppMessage('Account created and signed in.');
+      return;
+    }
+
+    setAuthMode('sign_in');
+    setAppMessage('Sign-up successful. Check your email to confirm your account, then sign in.');
   }
 
   async function handleSignOut() {
@@ -572,10 +623,50 @@ export default function App() {
 
       {showAuthPanel && !authLoading ? (
         <section className="panel auth-panel">
-          <h3>Sign In to Supabase</h3>
-          <p>Use the email/password account that matches an `employees.id` row in Supabase Auth.</p>
+          <h3>{authMode === 'sign_up' ? 'Create Account' : 'Sign In to Supabase'}</h3>
+          <p>
+            {authMode === 'sign_up'
+              ? 'New accounts are created as employee users.'
+              : 'Sign in with your email and password.'}
+          </p>
 
-          <form className="auth-form" onSubmit={handleSignIn}>
+          <div className="auth-mode-toggle" role="tablist" aria-label="Authentication mode">
+            <button
+              type="button"
+              className={authMode === 'sign_in' ? 'active' : ''}
+              onClick={() => {
+                setAuthMode('sign_in');
+                setAuthError('');
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={authMode === 'sign_up' ? 'active' : ''}
+              onClick={() => {
+                setAuthMode('sign_up');
+                setAuthError('');
+              }}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          <form className="auth-form" onSubmit={authMode === 'sign_up' ? handleSignUp : handleSignIn}>
+            {authMode === 'sign_up' ? (
+              <label>
+                Full Name
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  required
+                  autoComplete="name"
+                />
+              </label>
+            ) : null}
+
             <label>
               Email
               <input
@@ -598,8 +689,21 @@ export default function App() {
               />
             </label>
 
+            {authMode === 'sign_up' ? (
+              <label>
+                Department (optional)
+                <input
+                  type="text"
+                  value={department}
+                  onChange={(event) => setDepartment(event.target.value)}
+                  placeholder="UNASSIGNED"
+                  autoComplete="organization"
+                />
+              </label>
+            ) : null}
+
             <button type="submit" className="primary">
-              Sign In
+              {authMode === 'sign_up' ? 'Create Account' : 'Sign In'}
             </button>
           </form>
 
