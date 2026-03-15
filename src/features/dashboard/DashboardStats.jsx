@@ -37,7 +37,7 @@ export default function DashboardStats({
   ];
 
   if (role === 'manager') {
-    const pendingCount = swapRequests.filter((request) => request.status === 'pending').length;
+    const pendingCount = swapRequests.filter((request) => request.status?.startsWith('pending')).length;
 
     stats.push(
       {
