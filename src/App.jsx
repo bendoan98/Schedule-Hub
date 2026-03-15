@@ -313,6 +313,56 @@ export default function App() {
     return `Day ${shift.day + 1} (${shift.startTime}-${shift.endTime})`;
   }
 
+  function toMinutes(timeValue) {
+    const [hour, minute] = timeValue.split(':').map(Number);
+    return hour * 60 + minute;
+  }
+
+  function shiftsOverlap(left, right) {
+    if (!left || !right) {
+      return false;
+    }
+
+    if (left.weekStart !== right.weekStart || left.day !== right.day) {
+      return false;
+    }
+
+    const leftStart = toMinutes(left.startTime);
+    const leftEnd = toMinutes(left.endTime);
+    const rightStart = toMinutes(right.startTime);
+    const rightEnd = toMinutes(right.endTime);
+
+    return leftStart < rightEnd && rightStart < leftEnd;
+  }
+
+  function hasTradeConflict(requestedShift, offeredShift) {
+    if (!requestedShift || !offeredShift) {
+      return false;
+    }
+
+    return shifts.some((existingShift) => {
+      if (existingShift.id === requestedShift.id || existingShift.id === offeredShift.id) {
+        return false;
+      }
+
+      if (
+        existingShift.employeeId === offeredShift.employeeId &&
+        shiftsOverlap(existingShift, requestedShift)
+      ) {
+        return true;
+      }
+
+      if (
+        existingShift.employeeId === requestedShift.employeeId &&
+        shiftsOverlap(existingShift, offeredShift)
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+  }
+
   function buildNotificationTargets(recipientIds, title, body) {
     if (!team?.id) {
       return [];
@@ -499,6 +549,12 @@ export default function App() {
       return;
     }
 
+    if (hasTradeConflict(targetShift, offeredShift)) {
+      setSwapTradeTargetShift(null);
+      setAppMessage('Schedule request denied automatically due to a shift conflict.');
+      return;
+    }
+
     const trimmedReason = reason.trim();
 
     if (isSupabaseMode && session && supabase) {
@@ -562,6 +618,10 @@ export default function App() {
     const request = swapRequests.find((item) => item.id === requestId);
     const requestedShift = request ? shifts.find((shift) => shift.id === request.shiftId) : null;
     const offeredShift = request ? shifts.find((shift) => shift.id === request.offeredShiftId) : null;
+    const autoDeniedByConflict =
+      (status === 'pending_manager' || status === 'approved') &&
+      hasTradeConflict(requestedShift, offeredShift);
+    const resolvedStatus = autoDeniedByConflict ? 'denied' : status;
 
     if (!request) {
       return;
@@ -569,7 +629,7 @@ export default function App() {
 
     if (isSupabaseMode && session && supabase) {
       try {
-        if (status === 'approved' && requestedShift && offeredShift) {
+        if (resolvedStatus === 'approved' && requestedShift && offeredShift) {
           await upsertShift(
             supabase,
             {
@@ -590,12 +650,20 @@ export default function App() {
           );
         }
 
-        await setSwapRequestStatus(supabase, requestId, status);
+        await setSwapRequestStatus(supabase, requestId, resolvedStatus);
 
         if (team?.id) {
           let notificationsToInsert = [];
 
-          if (status === 'pending_manager') {
+          if (autoDeniedByConflict) {
+            notificationsToInsert = buildNotificationTargets(
+              [request.requestedBy, request.targetEmployeeId],
+              'Swap Request Denied',
+              `Trade request for ${toShiftSummary(offeredShift)} and ${toShiftSummary(
+                requestedShift
+              )} was denied automatically due to a schedule conflict.`
+            );
+          } else if (resolvedStatus === 'pending_manager') {
             const managerIds = employees
               .filter((employee) => employee.role === 'manager')
               .map((employee) => employee.id);
@@ -607,7 +675,7 @@ export default function App() {
                 offeredShift
               )} and ${toShiftSummary(requestedShift)}. Final manager approval is required.`
             );
-          } else if (status === 'denied' && currentEmployeeId === request.targetEmployeeId) {
+          } else if (resolvedStatus === 'denied' && currentEmployeeId === request.targetEmployeeId) {
             notificationsToInsert = buildNotificationTargets(
               [request.requestedBy],
               'Swap Request Denied',
@@ -615,11 +683,11 @@ export default function App() {
                 requestedShift
               )}.`
             );
-          } else if (status === 'approved' || status === 'denied') {
-            const finalWord = status === 'approved' ? 'approved' : 'denied';
+          } else if (resolvedStatus === 'approved' || resolvedStatus === 'denied') {
+            const finalWord = resolvedStatus === 'approved' ? 'approved' : 'denied';
             notificationsToInsert = buildNotificationTargets(
               [request.requestedBy, request.targetEmployeeId],
-              `Swap Request ${status === 'approved' ? 'Approved' : 'Denied'}`,
+              `Swap Request ${resolvedStatus === 'approved' ? 'Approved' : 'Denied'}`,
               `Manager ${finalWord} the trade request for ${toShiftSummary(offeredShift)} and ${toShiftSummary(
                 requestedShift
               )}.`
@@ -633,9 +701,11 @@ export default function App() {
         }
 
         await loadSupabaseData();
-        if (status === 'pending_manager') {
+        if (autoDeniedByConflict) {
+          setAppMessage('Schedule request denied automatically due to a shift conflict.');
+        } else if (resolvedStatus === 'pending_manager') {
           setAppMessage('Swap request accepted and sent to manager for final approval.');
-        } else if (status === 'approved') {
+        } else if (resolvedStatus === 'approved') {
           setAppMessage('Swap request approved and shifts updated.');
         } else {
           setAppMessage('Swap request denied.');
@@ -647,7 +717,7 @@ export default function App() {
       return;
     }
 
-    if (status === 'approved' && requestedShift && offeredShift) {
+    if (resolvedStatus === 'approved' && requestedShift && offeredShift) {
       setShifts((previous) =>
         previous.map((shift) => {
           if (shift.id === requestedShift.id) {
@@ -677,14 +747,16 @@ export default function App() {
 
         return {
           ...request,
-          status
+          status: resolvedStatus
         };
       })
     );
 
-    if (status === 'pending_manager') {
+    if (autoDeniedByConflict) {
+      addLocalNotification('Swap Request Denied', 'Request was denied automatically due to a shift conflict.');
+    } else if (resolvedStatus === 'pending_manager') {
       addLocalNotification('Swap Request Escalated', 'Teammate accepted the trade. Waiting for manager approval.');
-    } else if (status === 'approved') {
+    } else if (resolvedStatus === 'approved') {
       addLocalNotification('Swap Request Approved', 'Manager approved the trade and shifts were swapped.');
     } else {
       addLocalNotification('Swap Request Denied', 'A swap request was denied.');
