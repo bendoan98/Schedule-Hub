@@ -165,8 +165,6 @@ vi.mock('./features/manager/ManagerPage', () => ({
 
 describe('App', () => {
   it('handles local shift actions and notification updates', async () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Need coverage');
-
     render(<App />);
 
     expect(screen.getByText(/running with mock data/i)).toBeInTheDocument();
@@ -183,8 +181,7 @@ describe('App', () => {
     expect(screen.getByTestId('unread-count')).toHaveTextContent('2');
 
     fireEvent.click(screen.getByRole('button', { name: /trigger swap request/i }));
-    expect(promptSpy).toHaveBeenCalled();
-    expect(screen.getByTestId('unread-count')).toHaveTextContent('3');
+    expect(screen.getByText(/click another teammate’s shift to request a trade/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /mark all read/i }));
     expect(screen.getByTestId('unread-count')).toHaveTextContent('0');

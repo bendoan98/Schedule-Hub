@@ -3,15 +3,33 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import SwapRequestsPanel from './SwapRequestsPanel';
 
 describe('SwapRequestsPanel', () => {
-  const shifts = [{ id: 's1', day: 1, startTime: '09:00', endTime: '17:00' }];
+  const shifts = [
+    { id: 's1', employeeId: 'e2', day: 1, startTime: '09:00', endTime: '17:00' },
+    { id: 's2', employeeId: 'e1', day: 3, startTime: '11:00', endTime: '19:00' }
+  ];
   const employees = [{ id: 'e1', name: 'Alex' }, { id: 'e2', name: 'Sam' }];
 
   const swapRequests = [
-    { id: 'r1', shiftId: 's1', requestedBy: 'e1', status: 'pending', reason: 'Appointment' },
-    { id: 'r2', shiftId: 's1', requestedBy: 'e2', status: 'approved' }
+    {
+      id: 'r1',
+      shiftId: 's1',
+      offeredShiftId: 's2',
+      requestedBy: 'e1',
+      targetEmployeeId: 'e2',
+      status: 'pending_manager',
+      reason: 'Appointment'
+    },
+    {
+      id: 'r2',
+      shiftId: 's1',
+      offeredShiftId: 's2',
+      requestedBy: 'e1',
+      targetEmployeeId: 'e2',
+      status: 'pending_target'
+    }
   ];
 
-  it('lets managers approve or deny pending requests', () => {
+  it('lets managers final approve or deny requests awaiting manager review', () => {
     const onDecision = vi.fn();
 
     render(
@@ -25,14 +43,16 @@ describe('SwapRequestsPanel', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /approve/i }));
+    fireEvent.click(screen.getByRole('button', { name: /final approve/i }));
     expect(onDecision).toHaveBeenCalledWith('r1', 'approved');
 
-    fireEvent.click(screen.getByRole('button', { name: /deny/i }));
+    fireEvent.click(screen.getByRole('button', { name: /final deny/i }));
     expect(onDecision).toHaveBeenCalledWith('r1', 'denied');
   });
 
-  it('shows only the current employee requests for non-managers', () => {
+  it('lets target employees accept or deny incoming peer requests', () => {
+    const onDecision = vi.fn();
+
     render(
       <SwapRequestsPanel
         role="employee"
@@ -40,12 +60,15 @@ describe('SwapRequestsPanel', () => {
         swapRequests={swapRequests}
         shifts={shifts}
         employees={employees}
-        onDecision={() => {}}
+        onDecision={onDecision}
       />
     );
 
-    expect(screen.getByText('APPROVED')).toBeInTheDocument();
-    expect(screen.queryByText('PENDING')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /approve/i })).not.toBeInTheDocument();
+    expect(screen.getByText('PENDING PEER')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^approve$/i }));
+    expect(onDecision).toHaveBeenCalledWith('r2', 'pending_manager');
+
+    fireEvent.click(screen.getByRole('button', { name: /^deny$/i }));
+    expect(onDecision).toHaveBeenCalledWith('r2', 'denied');
   });
 });

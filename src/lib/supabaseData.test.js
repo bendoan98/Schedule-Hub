@@ -119,7 +119,18 @@ describe('supabaseData', () => {
         },
         swap_requests: {
           selectResult: {
-            data: [{ id: 'r1', shift_id: 's1', requested_by: 'e1', reason: null, status: 'pending', created_at: '2026-03-01' }],
+            data: [
+              {
+                id: 'r1',
+                shift_id: 's1',
+                offered_shift_id: 's2',
+                requested_by: 'e1',
+                target_employee_id: 'e2',
+                reason: null,
+                status: 'pending_manager',
+                created_at: '2026-03-01'
+              }
+            ],
             error: null
           }
         },
@@ -170,6 +181,8 @@ describe('supabaseData', () => {
     });
     expect(snapshot.departments).toEqual(['UNASSIGNED', 'OPS']);
     expect(snapshot.shifts[0].employeeId).toBe('e1');
+    expect(snapshot.swapRequests[0].offeredShiftId).toBe('s2');
+    expect(snapshot.swapRequests[0].targetEmployeeId).toBe('e2');
     expect(snapshot.swapRequests[0].reason).toBe('');
     expect(snapshot.notifications[0].read).toBe(false);
     expect(snapshot.boardPosts[0].authorId).toBe('e1');
@@ -363,7 +376,13 @@ describe('supabaseData', () => {
     const client = createClient();
 
     await removeShift(client, 's1');
-    await createSwapRequest(client, { shiftId: 's1', requestedBy: 'e1', reason: '' });
+    await createSwapRequest(client, {
+      shiftId: 's1',
+      offeredShiftId: 's2',
+      requestedBy: 'e1',
+      targetEmployeeId: 'e2',
+      reason: ''
+    });
     await setSwapRequestStatus(client, 'r1', 'approved');
     await markAllNotificationsRead(client);
     await insertMessagePost(client, { teamId: 't1', authorId: 'e1', kind: 'manager', message: 'note' });
@@ -371,9 +390,11 @@ describe('supabaseData', () => {
     expect(client.handlers.get('shifts').delete).toHaveBeenCalledTimes(1);
     expect(client.handlers.get('swap_requests').insert).toHaveBeenCalledWith({
       shift_id: 's1',
+      offered_shift_id: 's2',
       requested_by: 'e1',
+      target_employee_id: 'e2',
       reason: null,
-      status: 'pending'
+      status: 'pending_target'
     });
     expect(client.handlers.get('swap_requests').update).toHaveBeenCalledWith({ status: 'approved' });
     expect(client.handlers.get('notifications').update).toHaveBeenCalledTimes(1);

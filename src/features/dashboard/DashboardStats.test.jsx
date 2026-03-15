@@ -15,7 +15,7 @@ describe('DashboardStats', () => {
   ];
 
   const swapRequests = [
-    { id: 'r1', status: 'pending' },
+    { id: 'r1', status: 'pending_target' },
     { id: 'r2', status: 'approved' }
   ];
 

@@ -3,7 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import WeeklyCalendar from './WeeklyCalendar';
 
 describe('WeeklyCalendar', () => {
-  const employees = [{ id: 'e1', name: 'Alex', department: 'OPS', colorIndex: 0 }];
+  const employees = [
+    { id: 'e1', name: 'Alex', department: 'OPS', colorIndex: 0 },
+    { id: 'e2', name: 'Sam', department: 'OPS', colorIndex: 1 }
+  ];
   const shifts = [
     {
       id: 's1',
@@ -12,12 +15,19 @@ describe('WeeklyCalendar', () => {
       startTime: '09:00',
       endTime: '17:00',
       weekStart: '2026-03-09'
+    },
+    {
+      id: 's2',
+      employeeId: 'e2',
+      day: 0,
+      startTime: '10:00',
+      endTime: '18:00',
+      weekStart: '2026-03-09'
     }
   ];
 
-  it('supports employee swap request and shift interaction', () => {
+  it('lets employees open trade flow from other employee shifts only', () => {
     const onShiftClick = vi.fn();
-    const onRequestSwap = vi.fn();
 
     render(
       <WeeklyCalendar
@@ -28,19 +38,18 @@ describe('WeeklyCalendar', () => {
         swapRequests={[]}
         onAddShift={() => {}}
         onShiftClick={onShiftClick}
-        onRequestSwap={onRequestSwap}
+        onRequestSwap={() => {}}
         currentEmployeeId="e1"
         onPrevWeek={() => {}}
         onNextWeek={() => {}}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Request Swap' }));
-    expect(onRequestSwap).toHaveBeenCalledWith(expect.objectContaining({ id: 's1' }));
+    fireEvent.click(screen.getByText('09:00 - 17:00'));
     expect(onShiftClick).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByText('09:00 - 17:00'));
-    expect(onShiftClick).toHaveBeenCalledWith(expect.objectContaining({ id: 's1' }));
+    fireEvent.click(screen.getByText('10:00 - 18:00'));
+    expect(onShiftClick).toHaveBeenCalledWith(expect.objectContaining({ id: 's2' }));
   });
 
   it('supports manager controls and week navigation', () => {
