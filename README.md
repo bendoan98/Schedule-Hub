@@ -176,6 +176,20 @@ Preview production build:
 npm run preview
 ```
 
+Run tests:
+
+```bash
+npm test
+```
+
+Run coverage report:
+
+```bash
+npm run coverage
+```
+
+Coverage artifacts are written to `coverage/` (HTML report + JSON summary + console text report).
+
 ## Supabase Setup
 
 Run SQL in this order in Supabase SQL Editor:
