@@ -76,7 +76,7 @@ Core tables:
 - `departments`
   - `team_id`, `name` (unique per team)
 - `employees`
-  - `id` (matches `auth.users.id`), `team_id`, `role`, `department`, `color_index`
+  - `id` (matches `auth.users.id`), `team_id`, `role`, `department_id`, `color_index`
 - `shifts`
   - `employee_id`, `day`, `start_time`, `end_time`, `week_start`
 - `swap_requests`
@@ -105,6 +105,8 @@ High-level policy behavior:
 - Notifications:
   - each user can read/update only their own notification rows (`recipient_employee_id = auth.uid()`).
   - inserts are allowed to team recipients according to role rules.
+- Department linkage:
+  - `employees.department_id` references `departments.id` with `ON DELETE SET NULL`.
 
 See:
 - `supabase/schema.sql`

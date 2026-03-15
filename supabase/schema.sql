@@ -66,25 +66,54 @@ create table if not exists public.employees (
   name text not null,
   email text not null unique,
   role text not null default 'employee' check (role in ('manager', 'employee')),
-  department text,
+  department_id uuid references public.departments (id) on delete set null,
   color_index integer not null default 0 check (color_index between 0 and 7),
   created_at timestamptz not null default timezone('utc', now())
 );
 
 alter table public.employees
-  add column if not exists team_id uuid references public.teams (id) on delete set null;
+  add column if not exists team_id uuid references public.teams (id) on delete set null,
+  add column if not exists department_id uuid references public.departments (id) on delete set null;
 alter table public.employees alter column role set default 'employee';
-alter table public.employees alter column department drop not null;
-alter table public.employees alter column department drop default;
 
 create index if not exists employees_team_idx on public.employees (team_id);
+create index if not exists employees_department_id_idx on public.employees (department_id);
 
-insert into public.departments (team_id, name)
-select distinct e.team_id, e.department
-from public.employees e
-where e.team_id is not null
-  and nullif(trim(e.department), '') is not null
-on conflict (team_id, name) do nothing;
+drop trigger if exists sync_employee_department_name_on_department_id on public.employees;
+drop function if exists public.sync_employee_department_name_from_id();
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'employees'
+      and column_name = 'department'
+  ) then
+    execute $legacy$
+      insert into public.departments (team_id, name)
+      select distinct e.team_id, e.department
+      from public.employees e
+      where e.team_id is not null
+        and nullif(trim(e.department), '') is not null
+      on conflict (team_id, name) do nothing
+    $legacy$;
+
+    execute $legacy$
+      update public.employees e
+      set department_id = d.id
+      from public.departments d
+      where e.team_id = d.team_id
+        and e.department_id is null
+        and nullif(trim(e.department), '') is not null
+        and upper(trim(e.department)) = upper(trim(d.name))
+    $legacy$;
+
+    execute 'alter table public.employees drop column if exists department';
+  end if;
+end;
+$$;
 
 -- Automatically provision an employee profile when a new auth user signs up.
 create or replace function public.handle_new_user()
@@ -94,7 +123,7 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.employees (id, team_id, name, email, role, department, color_index)
+  insert into public.employees (id, team_id, name, email, role, department_id, color_index)
   values (
     new.id,
     null,
@@ -104,13 +133,12 @@ begin
     ),
     new.email,
     'employee',
-    nullif(trim(new.raw_user_meta_data->>'department'), ''),
+    null,
     floor(random() * 8)::integer
   )
   on conflict (id) do update
     set name = excluded.name,
-        email = excluded.email,
-        department = excluded.department;
+        email = excluded.email;
 
   return new;
 end;
@@ -172,18 +200,12 @@ begin
 
   update public.employees
   set team_id = created_team.id,
-      role = 'manager'
+      role = 'manager',
+      department_id = null
   where id = current_user_id;
 
   insert into public.departments (team_id, name)
   values (created_team.id, 'UNASSIGNED')
-  on conflict on constraint departments_team_name_unique do nothing;
-
-  insert into public.departments (team_id, name)
-  select created_team.id, e.department
-  from public.employees e
-  where e.id = current_user_id
-    and nullif(trim(e.department), '') is not null
   on conflict on constraint departments_team_name_unique do nothing;
 
   return query
@@ -228,18 +250,12 @@ begin
 
   update public.employees
   set team_id = requested_team.id,
-      role = 'employee'
+      role = 'employee',
+      department_id = null
   where id = current_user_id;
 
   insert into public.departments (team_id, name)
   values (requested_team.id, 'UNASSIGNED')
-  on conflict on constraint departments_team_name_unique do nothing;
-
-  insert into public.departments (team_id, name)
-  select requested_team.id, e.department
-  from public.employees e
-  where e.id = current_user_id
-    and nullif(trim(e.department), '') is not null
   on conflict on constraint departments_team_name_unique do nothing;
 
   return query

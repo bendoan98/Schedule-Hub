@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { DEFAULT_DEPARTMENT, buildDepartmentList, toStoredDepartment } from '../../utils/department';
+import { DEFAULT_DEPARTMENT, buildDepartmentList, normalizeDepartmentName } from '../../utils/department';
 
 export default function TeamRosterPanel({
   employees,
@@ -22,21 +22,17 @@ export default function TeamRosterPanel({
   );
 
   function getDraftDepartment(employee) {
-    return drafts[employee.id] ?? employee.department ?? departmentOptions[0] ?? '';
+    return drafts[employee.id] ?? employee.department ?? '';
   }
 
   async function handleSubmit(event, employee) {
     event.preventDefault();
 
     const draftDepartment = getDraftDepartment(employee);
+    const nextDepartment = normalizeDepartmentName(draftDepartment) || null;
+    const currentDepartment = normalizeDepartmentName(employee.department) || null;
 
-    if (!draftDepartment) {
-      return;
-    }
-
-    const nextDepartment = toStoredDepartment(draftDepartment);
-
-    if (nextDepartment === toStoredDepartment(employee.department)) {
+    if (nextDepartment === currentDepartment) {
       return;
     }
 
@@ -44,7 +40,7 @@ export default function TeamRosterPanel({
 
     setDrafts((previous) => ({
       ...previous,
-      [employee.id]: nextDepartment
+      [employee.id]: nextDepartment ?? ''
     }));
   }
 
@@ -58,8 +54,9 @@ export default function TeamRosterPanel({
       <div className="roster-list">
         {editableRows.map((employee) => {
           const draftDepartment = getDraftDepartment(employee);
-          const nextDepartment = toStoredDepartment(draftDepartment);
-          const unchanged = nextDepartment === toStoredDepartment(employee.department);
+          const nextDepartment = normalizeDepartmentName(draftDepartment) || null;
+          const currentDepartment = normalizeDepartmentName(employee.department) || null;
+          const unchanged = nextDepartment === currentDepartment;
           const isSaving = updatingEmployeeId === employee.id;
 
           return (
@@ -82,11 +79,7 @@ export default function TeamRosterPanel({
                       }));
                     }}
                   >
-                    {departmentOptions.length === 0 ? (
-                      <option value="" disabled>
-                        No departments available
-                      </option>
-                    ) : null}
+                    <option value="">No department</option>
                     {departmentOptions.map((department) => (
                       <option key={department} value={department}>
                         {department}
@@ -95,7 +88,7 @@ export default function TeamRosterPanel({
                   </select>
                 </label>
 
-                <button type="submit" disabled={unchanged || isSaving || !draftDepartment}>
+                <button type="submit" disabled={unchanged || isSaving}>
                   {isSaving ? 'Saving...' : 'Save'}
                 </button>
               </form>

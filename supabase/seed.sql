@@ -19,11 +19,35 @@ values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'DRIVER')
 on conflict (team_id, name) do nothing;
 
-insert into public.employees (id, team_id, name, email, role, department, color_index)
+insert into public.employees (id, team_id, name, email, role, department_id, color_index)
 values
-  ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Alex Morgan', 'alex.morgan@example.com', 'manager', 'OPERATIONS', 1),
-  ('22222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Jamie Chen', 'jamie.chen@example.com', 'employee', 'KITCHEN', 0),
-  ('33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Sam Rivera', 'sam.rivera@example.com', 'employee', 'DRIVER', 2)
+  (
+    '11111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'Alex Morgan',
+    'alex.morgan@example.com',
+    'manager',
+    (select d.id from public.departments d where d.team_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' and d.name = 'OPERATIONS'),
+    1
+  ),
+  (
+    '22222222-2222-2222-2222-222222222222',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'Jamie Chen',
+    'jamie.chen@example.com',
+    'employee',
+    (select d.id from public.departments d where d.team_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' and d.name = 'KITCHEN'),
+    0
+  ),
+  (
+    '33333333-3333-3333-3333-333333333333',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'Sam Rivera',
+    'sam.rivera@example.com',
+    'employee',
+    (select d.id from public.departments d where d.team_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' and d.name = 'DRIVER'),
+    2
+  )
 on conflict (id) do nothing;
 
 insert into public.shifts (employee_id, day, start_time, end_time, week_start)

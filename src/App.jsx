@@ -579,15 +579,19 @@ export default function App() {
   }
 
   async function handleUpdateEmployeeDepartment(employeeId, departmentValue) {
-    const nextDepartment = toStoredDepartment(departmentValue);
+    const nextDepartment = normalizeDepartmentName(departmentValue) || null;
     setUpdatingDepartmentEmployeeId(employeeId);
 
     if (isSupabaseMode && session && supabase) {
       try {
         const previousEmployee = employees.find((employee) => employee.id === employeeId);
-        await updateEmployeeDepartment(supabase, employeeId, nextDepartment);
+        await updateEmployeeDepartment(supabase, {
+          employeeId,
+          teamId: team?.id ?? null,
+          department: nextDepartment
+        });
 
-        if (team?.id && !departments.includes(nextDepartment)) {
+        if (team?.id && nextDepartment && !departments.includes(nextDepartment)) {
           await ensureDepartment(supabase, team.id, nextDepartment);
         }
 
@@ -602,7 +606,7 @@ export default function App() {
                     title: 'Department Updated',
                     body: `Your department changed from ${
                       previousEmployee?.department ?? 'no department'
-                    } to ${nextDepartment}.`
+                    } to ${nextDepartment ?? 'no department'}.`
                   }
                 ];
 
@@ -633,7 +637,9 @@ export default function App() {
       })
     );
 
-    setTeamDepartments((previous) => buildDepartmentList([...(previous ?? []), nextDepartment]));
+    if (nextDepartment) {
+      setTeamDepartments((previous) => buildDepartmentList([...(previous ?? []), nextDepartment]));
+    }
 
     setUpdatingDepartmentEmployeeId('');
     addLocalNotification('Department Updated', 'Employee department was updated.');

@@ -8,14 +8,15 @@ function normalizeError(error, fallback) {
   return new Error(error.message || fallback);
 }
 
-function mapEmployee(row) {
+function mapEmployee(row, departmentNamesById) {
   return {
     id: row.id,
     teamId: row.team_id,
     name: row.name,
     email: row.email,
     role: row.role,
-    department: row.department,
+    department: row.department_id ? departmentNamesById.get(row.department_id) ?? null : null,
+    departmentId: row.department_id ?? null,
     colorIndex: row.color_index ?? 0
   };
 }
@@ -119,7 +120,7 @@ export async function fetchAppData(client) {
   const [employeesRes, teamsRes, departmentsRes, shiftsRes, swapRes, notificationsRes, postsRes] = await Promise.all([
     client
       .from('employees')
-      .select('id, team_id, name, email, role, department, color_index')
+      .select('id, team_id, name, email, role, department_id, color_index')
       .order('name', { ascending: true }),
     client
       .from('teams')
@@ -162,8 +163,12 @@ export async function fetchAppData(client) {
     throw normalizedError;
   }
 
+  const departmentNamesById = new Map(
+    (departmentsRes.data ?? []).map((row) => [row.id, toStoredDepartment(row.name)])
+  );
+
   return {
-    employees: (employeesRes.data ?? []).map(mapEmployee),
+    employees: (employeesRes.data ?? []).map((row) => mapEmployee(row, departmentNamesById)),
     team: teamsRes.data?.[0] ? mapTeam(teamsRes.data[0]) : null,
     departments: buildDepartmentList((departmentsRes.data ?? []).map(mapDepartmentName)),
     shifts: (shiftsRes.data ?? []).map(mapShift),
@@ -267,21 +272,85 @@ export async function replaceDepartmentForTeam(client, { teamId, fromDepartment,
     return;
   }
 
-  const { error } = await client
-    .from('employees')
-    .update({ department: target })
+  const { data: sourceDepartmentRow, error: sourceLookupError } = await client
+    .from('departments')
+    .select('id')
     .eq('team_id', teamId)
-    .eq('department', source);
+    .eq('name', source)
+    .maybeSingle();
+
+  if (sourceLookupError) {
+    throw normalizeError(sourceLookupError, 'Unable to resolve source department.');
+  }
+
+  let targetDepartmentId = null;
+
+  if (target) {
+    const { data: targetDepartmentRow, error: targetLookupError } = await client
+      .from('departments')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('name', target)
+      .maybeSingle();
+
+    if (targetLookupError) {
+      throw normalizeError(targetLookupError, 'Unable to resolve target department.');
+    }
+
+    if (!targetDepartmentRow?.id && !sourceDepartmentRow?.id) {
+      throw new Error(`Department ${target} not found for this team.`);
+    }
+
+    // During rename flow, target name does not exist yet. Keep source department ID.
+    targetDepartmentId = targetDepartmentRow?.id ?? sourceDepartmentRow.id;
+  }
+
+  if (!sourceDepartmentRow?.id) {
+    return;
+  }
+
+  const query = client
+    .from('employees')
+    .update({ department_id: targetDepartmentId })
+    .eq('team_id', teamId)
+    .eq('department_id', sourceDepartmentRow.id);
+
+  const { error } = await query;
 
   if (error) {
     throw normalizeError(error, 'Unable to update team department members.');
   }
 }
 
-export async function updateEmployeeDepartment(client, employeeId, department) {
+export async function updateEmployeeDepartment(client, { employeeId, teamId, department }) {
+  let departmentId = null;
+
+  if (department != null) {
+    if (!teamId) {
+      throw new Error('Team is required when assigning a department.');
+    }
+
+    const { data: departmentRow, error: lookupError } = await client
+      .from('departments')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('name', department)
+      .maybeSingle();
+
+    if (lookupError) {
+      throw normalizeError(lookupError, 'Unable to resolve department.');
+    }
+
+    if (!departmentRow?.id) {
+      throw new Error(`Department ${department} not found for this team.`);
+    }
+
+    departmentId = departmentRow.id;
+  }
+
   const { error } = await client
     .from('employees')
-    .update({ department })
+    .update({ department_id: departmentId })
     .eq('id', employeeId);
 
   if (error) {

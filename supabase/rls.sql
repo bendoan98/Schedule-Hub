@@ -28,21 +28,21 @@ as $$
   );
 $$;
 
-create or replace function public.current_department_name()
-returns text
+create or replace function public.current_department_id()
+returns uuid
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select e.department
+  select e.department_id
   from public.employees e
   where e.id = auth.uid();
 $$;
 
 grant execute on function public.current_team_id() to authenticated;
 grant execute on function public.is_manager() to authenticated;
-grant execute on function public.current_department_name() to authenticated;
+grant execute on function public.current_department_id() to authenticated;
 
 alter table public.teams enable row level security;
 alter table public.departments enable row level security;
@@ -153,8 +153,8 @@ using (
   )
   or (
     team_id = public.current_team_id()
-    and public.current_department_name() is not null
-    and department = public.current_department_name()
+    and public.current_department_id() is not null
+    and department_id = public.current_department_id()
   )
 );
 
@@ -200,8 +200,8 @@ using (
         public.is_manager()
         or public.shifts.employee_id = auth.uid()
         or (
-          public.current_department_name() is not null
-          and e.department = public.current_department_name()
+          public.current_department_id() is not null
+          and e.department_id = public.current_department_id()
         )
       )
   )
