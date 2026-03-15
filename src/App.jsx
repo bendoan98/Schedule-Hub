@@ -24,6 +24,7 @@ import {
   fetchAppData,
   insertCsvShifts,
   insertMessagePost,
+  insertNotifications,
   joinTeamWithInviteCode,
   markAllNotificationsRead,
   renameDepartment,
@@ -312,6 +313,20 @@ export default function App() {
       }
 
       const insertedCount = await insertCsvShifts(supabase, validShifts, importWeekStart);
+
+      if (team?.id) {
+        const employeeNotifications = employees
+          .filter((employee) => employee.role === 'employee')
+          .map((employee) => ({
+            teamId: team.id,
+            targetEmployeeId: employee.id,
+            title: 'New Schedule Available',
+            body: `A new schedule was published for the week of ${importWeekStart}.`
+          }));
+
+        await insertNotifications(supabase, employeeNotifications);
+      }
+
       await loadSupabaseData();
 
       const summary =
@@ -414,11 +429,28 @@ export default function App() {
           throw new Error('No employee profile selected for this user.');
         }
 
+        const trimmedReason = reason.trim();
+
         await createSwapRequest(supabase, {
           shiftId: shift.id,
           requestedBy: currentEmployeeId,
-          reason: reason.trim()
+          reason: trimmedReason
         });
+
+        if (team?.id) {
+          const managerNotifications = employees
+            .filter((employee) => employee.role === 'manager')
+            .map((employee) => ({
+              teamId: team.id,
+              targetEmployeeId: employee.id,
+              title: 'New Schedule Request',
+              body: `${currentUser?.name ?? 'An employee'} requested a swap for Day ${
+                shift.day + 1
+              } (${shift.startTime}-${shift.endTime})${trimmedReason ? `: ${trimmedReason}` : '.'}`
+            }));
+
+          await insertNotifications(supabase, managerNotifications);
+        }
 
         await loadSupabaseData();
         setAppMessage('Swap request created.');
@@ -447,7 +479,31 @@ export default function App() {
   async function handleSwapDecision(requestId, status) {
     if (isSupabaseMode && session && supabase) {
       try {
+        const request = swapRequests.find((item) => item.id === requestId);
+        const relatedShift = request ? shifts.find((shift) => shift.id === request.shiftId) : null;
+
         await setSwapRequestStatus(supabase, requestId, status);
+
+        if (request && team?.id) {
+          const addressedEmployees = new Set([request.requestedBy]);
+
+          if (relatedShift?.employeeId) {
+            addressedEmployees.add(relatedShift.employeeId);
+          }
+
+          await insertNotifications(
+            supabase,
+            Array.from(addressedEmployees).map((employeeId) => ({
+              teamId: team.id,
+              targetEmployeeId: employeeId,
+              title: `Schedule Request ${status === 'approved' ? 'Approved' : 'Denied'}`,
+              body: `Your schedule request for Day ${
+                (relatedShift?.day ?? 0) + 1
+              } (${relatedShift?.startTime ?? '--:--'}-${relatedShift?.endTime ?? '--:--'}) was ${status}.`
+            }))
+          );
+        }
+
         await loadSupabaseData();
         setAppMessage(`Swap request ${status}.`);
       } catch (error) {
@@ -524,10 +580,24 @@ export default function App() {
 
     if (isSupabaseMode && session && supabase) {
       try {
+        const previousEmployee = employees.find((employee) => employee.id === employeeId);
         await updateEmployeeDepartment(supabase, employeeId, nextDepartment);
 
         if (team?.id && !departments.includes(nextDepartment)) {
           await ensureDepartment(supabase, team.id, nextDepartment);
+        }
+
+        if (team?.id) {
+          await insertNotifications(supabase, [
+            {
+              teamId: team.id,
+              targetEmployeeId: employeeId,
+              title: 'Department Updated',
+              body: `Your department changed from ${
+                previousEmployee?.department ?? 'no department'
+              } to ${nextDepartment}.`
+            }
+          ]);
         }
 
         await loadSupabaseData();
@@ -624,6 +694,10 @@ export default function App() {
           throw new Error('Join or create a team before managing departments.');
         }
 
+        const affectedEmployeeIds = employees
+          .filter((employee) => toStoredDepartment(employee.department) === sourceDepartment)
+          .map((employee) => employee.id);
+
         await replaceDepartmentForTeam(supabase, {
           teamId: team.id,
           fromDepartment: sourceDepartment,
@@ -634,6 +708,15 @@ export default function App() {
           fromName: sourceDepartment,
           toName: targetDepartment
         });
+        await insertNotifications(
+          supabase,
+          affectedEmployeeIds.map((employeeId) => ({
+            teamId: team.id,
+            targetEmployeeId: employeeId,
+            title: 'Department Updated',
+            body: `Your department changed from ${sourceDepartment} to ${targetDepartment}.`
+          }))
+        );
         await loadSupabaseData();
         setAppMessage(`Department ${sourceDepartment} renamed to ${targetDepartment}.`);
       } catch (error) {
@@ -683,6 +766,10 @@ export default function App() {
           throw new Error('Join or create a team before managing departments.');
         }
 
+        const affectedEmployeeIds = employees
+          .filter((employee) => toStoredDepartment(employee.department) === sourceDepartment)
+          .map((employee) => employee.id);
+
         await replaceDepartmentForTeam(supabase, {
           teamId: team.id,
           fromDepartment: sourceDepartment,
@@ -692,6 +779,15 @@ export default function App() {
           teamId: team.id,
           name: sourceDepartment
         });
+        await insertNotifications(
+          supabase,
+          affectedEmployeeIds.map((employeeId) => ({
+            teamId: team.id,
+            targetEmployeeId: employeeId,
+            title: 'Department Updated',
+            body: `Your department ${sourceDepartment} was removed.`
+          }))
+        );
         await loadSupabaseData();
         setAppMessage(`Department ${sourceDepartment} deleted.`);
       } catch (error) {

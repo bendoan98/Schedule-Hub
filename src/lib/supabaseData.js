@@ -79,6 +79,16 @@ function mapMessagePost(row) {
   };
 }
 
+function normalizeNotificationPayload(payload) {
+  return {
+    team_id: payload.teamId,
+    target_employee_id: payload.targetEmployeeId ?? null,
+    title: payload.title,
+    body: payload.body,
+    read: false
+  };
+}
+
 function shiftPayload(shift, weekStart) {
   return {
     employee_id: shift.employeeId,
@@ -338,6 +348,22 @@ export async function markAllNotificationsRead(client, { role, currentEmployeeId
 
   if (error) {
     throw normalizeError(error, 'Unable to mark notifications as read.');
+  }
+}
+
+export async function insertNotifications(client, notifications) {
+  const payload = (notifications ?? [])
+    .filter((notification) => notification?.teamId && notification?.targetEmployeeId && notification?.title && notification?.body)
+    .map(normalizeNotificationPayload);
+
+  if (!payload.length) {
+    return;
+  }
+
+  const { error } = await client.from('notifications').insert(payload);
+
+  if (error) {
+    throw normalizeError(error, 'Unable to create notifications.');
   }
 }
 

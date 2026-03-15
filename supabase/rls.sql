@@ -84,6 +84,7 @@ drop policy if exists "swap_requests_update_manager_only" on public.swap_request
 
 drop policy if exists "notifications_select_team_scope" on public.notifications;
 drop policy if exists "notifications_modify_manager_same_team" on public.notifications;
+drop policy if exists "notifications_insert_team_member_targeted" on public.notifications;
 drop policy if exists "notifications_select_target_or_all" on public.notifications;
 drop policy if exists "notifications_modify_manager_only" on public.notifications;
 
@@ -305,6 +306,25 @@ using (
 with check (
   public.is_manager()
   and team_id = public.current_team_id()
+);
+
+create policy "notifications_insert_team_member_targeted"
+on public.notifications
+for insert
+with check (
+  auth.uid() is not null
+  and team_id = public.current_team_id()
+  and target_employee_id is not null
+  and exists (
+    select 1
+    from public.employees target
+    where target.id = public.notifications.target_employee_id
+      and target.team_id = public.current_team_id()
+      and (
+        public.is_manager()
+        or target.role = 'manager'
+      )
+  )
 );
 
 -- Message board policies
