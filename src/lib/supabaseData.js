@@ -174,6 +174,17 @@ export async function joinTeamWithInviteCode(client, inviteCode) {
   return mapRpcTeamResult(data, 'Unable to read joined team response.');
 }
 
+export async function updateEmployeeDepartment(client, employeeId, department) {
+  const { error } = await client
+    .from('employees')
+    .update({ department })
+    .eq('id', employeeId);
+
+  if (error) {
+    throw normalizeError(error, 'Unable to update employee department.');
+  }
+}
+
 export async function upsertShift(client, shift, weekStart) {
   const payload = shiftPayload(shift, weekStart);
 

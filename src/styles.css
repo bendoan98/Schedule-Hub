@@ -339,6 +339,43 @@ button.danger {
   gap: 0.7rem;
 }
 
+.roster-list {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.6rem;
+}
+
+.roster-item {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.roster-header {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.roster-header small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.roster-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.roster-form label {
+  flex: 1;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+}
+
 .request-item,
 .board-post {
   border: 1px solid var(--border);
@@ -591,5 +628,10 @@ button.danger {
   .panel,
   .stat-card {
     border-radius: 0.75rem;
+  }
+
+  .roster-form {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

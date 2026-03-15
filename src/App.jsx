@@ -8,6 +8,7 @@ import SwapRequestsPanel from './features/swaps/SwapRequestsPanel';
 import NotificationBell from './features/notifications/NotificationBell';
 import MessageBoard from './features/board/MessageBoard';
 import ExportButtons from './features/export/ExportButtons';
+import TeamRosterPanel from './features/team/TeamRosterPanel';
 import {
   mockBoardPosts,
   mockEmployees,
@@ -26,6 +27,7 @@ import {
   markAllNotificationsRead,
   removeShift,
   setSwapRequestStatus,
+  updateEmployeeDepartment,
   upsertShift
 } from './lib/supabaseData';
 import { getMonday, toIsoDate } from './utils/date';
@@ -59,6 +61,7 @@ export default function App() {
   const [teamSetupMode, setTeamSetupMode] = useState('create');
   const [teamNameInput, setTeamNameInput] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [updatingDepartmentEmployeeId, setUpdatingDepartmentEmployeeId] = useState('');
 
   const [authError, setAuthError] = useState('');
   const [appMessage, setAppMessage] = useState('');
@@ -472,6 +475,41 @@ export default function App() {
       },
       ...previous
     ]);
+  }
+
+  async function handleUpdateEmployeeDepartment(employeeId, departmentValue) {
+    const nextDepartment = departmentValue.trim() || 'UNASSIGNED';
+    setUpdatingDepartmentEmployeeId(employeeId);
+
+    if (isSupabaseMode && session && supabase) {
+      try {
+        await updateEmployeeDepartment(supabase, employeeId, nextDepartment);
+        await loadSupabaseData();
+        setAppMessage('Department updated.');
+      } catch (error) {
+        setAppMessage(error.message);
+      } finally {
+        setUpdatingDepartmentEmployeeId('');
+      }
+
+      return;
+    }
+
+    setEmployees((previous) =>
+      previous.map((employee) => {
+        if (employee.id !== employeeId) {
+          return employee;
+        }
+
+        return {
+          ...employee,
+          department: nextDepartment
+        };
+      })
+    );
+
+    setUpdatingDepartmentEmployeeId('');
+    addLocalNotification('Department Updated', 'Employee department was updated.');
   }
 
   async function handleSignIn(event) {
@@ -920,6 +958,15 @@ export default function App() {
             />
 
             <aside className="side-column">
+              {role === 'manager' ? (
+                <TeamRosterPanel
+                  employees={employees}
+                  onUpdateDepartment={handleUpdateEmployeeDepartment}
+                  updatingEmployeeId={updatingDepartmentEmployeeId}
+                  managerEmployeeId={currentEmployeeId}
+                />
+              ) : null}
+
               <SwapRequestsPanel
                 role={role}
                 currentEmployeeId={currentEmployeeId}
