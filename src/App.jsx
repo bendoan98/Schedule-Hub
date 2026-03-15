@@ -946,6 +946,17 @@ export default function App() {
               onPrevWeek={() => setWeekStart(toIsoDate(subWeeks(weekDate, 1)))}
               onNextWeek={() => setWeekStart(toIsoDate(addWeeks(weekDate, 1)))}
               disableWeekControls={dataLoading}
+              exportControl={
+                <ExportButtons
+                  shifts={shifts}
+                  employees={employees}
+                  role={role}
+                  currentEmployeeId={currentEmployeeId}
+                  weekStart={weekStart}
+                  compact
+                  compactLabel="Export"
+                />
+              }
             />
 
             <aside className="side-column">
@@ -967,13 +978,6 @@ export default function App() {
                 onDecision={handleSwapDecision}
               />
 
-              <ExportButtons
-                shifts={shifts}
-                employees={employees}
-                role={role}
-                currentEmployeeId={currentEmployeeId}
-                weekStart={weekStart}
-              />
             </aside>
           </main>
 

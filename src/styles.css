@@ -251,6 +251,12 @@ button.danger {
   margin-bottom: 0.75rem;
 }
 
+.calendar-title-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .calendar-header-meta {
   display: flex;
   align-items: center;
@@ -463,6 +469,14 @@ button.danger {
   position: relative;
 }
 
+.export-menu {
+  position: relative;
+}
+
+.export-menu-button {
+  white-space: nowrap;
+}
+
 .bell-button {
   display: inline-flex;
   align-items: center;
@@ -492,6 +506,52 @@ button.danger {
   box-shadow: var(--shadow);
   padding: 0.65rem;
   z-index: 30;
+}
+
+.export-popover {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 0.45rem);
+  right: auto;
+  width: min(320px, 80vw);
+  background: #11181e;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow);
+  padding: 0.65rem;
+  z-index: 30;
+}
+
+.export-popover .export-actions {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.export-option {
+  position: relative;
+}
+
+.export-option-hint {
+  position: absolute;
+  left: calc(100% + 0.45rem);
+  top: 50%;
+  width: max-content;
+  max-width: 250px;
+  color: var(--muted);
+  background: #11181e;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.5rem;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease;
+  pointer-events: none;
+  z-index: 32;
+}
+
+.export-option:hover .export-option-hint,
+.export-option:focus-within .export-option-hint {
+  opacity: 1;
 }
 
 .notification-popover header {

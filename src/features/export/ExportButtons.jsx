@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { getShiftDate } from '../../utils/date';
 
 function toIcsDate(date, time) {
@@ -67,7 +68,16 @@ function openGoogleCalendar(shift, employeeName, weekStart) {
   window.open(`https://calendar.google.com/calendar/render?${params.toString()}`, '_blank');
 }
 
-export default function ExportButtons({ shifts, employees, role, currentEmployeeId, weekStart }) {
+export default function ExportButtons({
+  shifts,
+  employees,
+  role,
+  currentEmployeeId,
+  weekStart,
+  compact = false,
+  compactLabel = 'Calendar Export'
+}) {
+  const [isOpen, setIsOpen] = useState(false);
   const employeesById = new Map(employees.map((employee) => [employee.id, employee]));
 
   const personalShifts = shifts.filter(
@@ -78,6 +88,63 @@ export default function ExportButtons({ shifts, employees, role, currentEmployee
 
   const firstPersonalShift = personalShifts[0];
 
+  function handlePersonalExport() {
+    const ics = buildIcs(personalShifts, employeesById, weekStart, 'personal');
+    downloadTextFile('personal-schedule.ics', ics);
+    setIsOpen(false);
+  }
+
+  function handleTeamExport() {
+    const ics = buildIcs(teamShifts, employeesById, weekStart, 'team');
+    downloadTextFile('team-schedule.ics', ics);
+    setIsOpen(false);
+  }
+
+  function handleGoogleOpen() {
+    const employeeName = employeesById.get(currentEmployeeId)?.name ?? 'My';
+    openGoogleCalendar(firstPersonalShift, employeeName, weekStart);
+    setIsOpen(false);
+  }
+
+  if (compact) {
+    return (
+      <div className={`export-menu ${isOpen ? 'open' : ''}`}>
+        <button type="button" onClick={() => setIsOpen((value) => !value)} className="export-menu-button">
+          {compactLabel}
+        </button>
+
+        {isOpen ? (
+          <section className="export-popover" aria-label="Calendar export options">
+            <div className="export-actions">
+              <div className="export-option">
+                <button type="button" onClick={handlePersonalExport}>
+                  Export Personal (.ics)
+                </button>
+                <small className="export-option-hint">Download your week schedule as an .ics file.</small>
+              </div>
+
+              {role === 'manager' ? (
+                <div className="export-option">
+                  <button type="button" onClick={handleTeamExport}>
+                    Export Team (.ics)
+                  </button>
+                  <small className="export-option-hint">Download the full team week schedule as .ics.</small>
+                </div>
+              ) : null}
+
+              <div className="export-option">
+                <button type="button" onClick={handleGoogleOpen} disabled={!firstPersonalShift}>
+                  Open Next Shift in Google Calendar
+                </button>
+                <small className="export-option-hint">Pre-fills your next shift into Google Calendar.</small>
+              </div>
+            </div>
+          </section>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <section className="panel export-panel">
       <h3>Calendar Export</h3>
@@ -86,34 +153,18 @@ export default function ExportButtons({ shifts, employees, role, currentEmployee
       <div className="export-actions">
         <button
           type="button"
-          onClick={() => {
-            const ics = buildIcs(personalShifts, employeesById, weekStart, 'personal');
-            downloadTextFile('personal-schedule.ics', ics);
-          }}
+          onClick={handlePersonalExport}
         >
           Export Personal (.ics)
         </button>
 
         {role === 'manager' ? (
-          <button
-            type="button"
-            onClick={() => {
-              const ics = buildIcs(teamShifts, employeesById, weekStart, 'team');
-              downloadTextFile('team-schedule.ics', ics);
-            }}
-          >
+          <button type="button" onClick={handleTeamExport}>
             Export Team (.ics)
           </button>
         ) : null}
 
-        <button
-          type="button"
-          onClick={() => {
-            const employeeName = employeesById.get(currentEmployeeId)?.name ?? 'My';
-            openGoogleCalendar(firstPersonalShift, employeeName, weekStart);
-          }}
-          disabled={!firstPersonalShift}
-        >
+        <button type="button" onClick={handleGoogleOpen} disabled={!firstPersonalShift}>
           Open Next Shift in Google Calendar
         </button>
       </div>

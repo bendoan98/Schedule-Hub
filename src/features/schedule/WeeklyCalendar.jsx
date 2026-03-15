@@ -15,7 +15,8 @@ export default function WeeklyCalendar({
   currentEmployeeId,
   onPrevWeek,
   onNextWeek,
-  disableWeekControls
+  disableWeekControls,
+  exportControl
 }) {
   const headers = getWeekHeaders(weekStart);
 
@@ -32,7 +33,10 @@ export default function WeeklyCalendar({
   return (
     <section className="panel calendar-panel">
       <div className="calendar-header-row">
-        <h3>Weekly Calendar</h3>
+        <div className="calendar-title-group">
+          <h3>Weekly Calendar</h3>
+          {exportControl}
+        </div>
 
         <div className="calendar-header-meta">
           <p>{weekStart}</p>
