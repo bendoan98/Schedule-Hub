@@ -12,7 +12,10 @@ export default function WeeklyCalendar({
   onAddShift,
   onShiftClick,
   onRequestSwap,
-  currentEmployeeId
+  currentEmployeeId,
+  onPrevWeek,
+  onNextWeek,
+  disableWeekControls
 }) {
   const headers = getWeekHeaders(weekStart);
 
@@ -30,7 +33,28 @@ export default function WeeklyCalendar({
     <section className="panel calendar-panel">
       <div className="calendar-header-row">
         <h3>Weekly Calendar</h3>
-        <p>{weekStart}</p>
+
+        <div className="calendar-header-meta">
+          <p>{weekStart}</p>
+          <div className="week-controls">
+            <button
+              type="button"
+              onClick={onPrevWeek}
+              aria-label="Previous week"
+              disabled={disableWeekControls}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              onClick={onNextWeek}
+              aria-label="Next week"
+              disabled={disableWeekControls}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="calendar-grid" role="table" aria-label="Weekly employee shifts">

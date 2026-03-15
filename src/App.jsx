@@ -712,25 +712,6 @@ export default function App() {
             </>
           ) : null}
 
-          <div className="week-controls">
-            <button
-              type="button"
-              onClick={() => setWeekStart(toIsoDate(subWeeks(weekDate, 1)))}
-              aria-label="Previous week"
-              disabled={showAuthPanel || authLoading || needsTeamSetup || missingProfile}
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={() => setWeekStart(toIsoDate(addWeeks(weekDate, 1)))}
-              aria-label="Next week"
-              disabled={showAuthPanel || authLoading || needsTeamSetup || missingProfile}
-            >
-              Next
-            </button>
-          </div>
-
           {showCoreApp ? (
             <NotificationBell notifications={notifications} onMarkAllRead={handleMarkAllRead} />
           ) : null}
@@ -955,6 +936,9 @@ export default function App() {
               onAddShift={handleAddShift}
               onShiftClick={handleShiftClick}
               onRequestSwap={handleRequestSwap}
+              onPrevWeek={() => setWeekStart(toIsoDate(subWeeks(weekDate, 1)))}
+              onNextWeek={() => setWeekStart(toIsoDate(addWeeks(weekDate, 1)))}
+              disableWeekControls={dataLoading}
             />
 
             <aside className="side-column">

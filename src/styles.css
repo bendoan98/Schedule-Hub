@@ -224,6 +224,12 @@ button.danger {
   margin-bottom: 0.75rem;
 }
 
+.calendar-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
 .calendar-header-row p {
   font-family: 'IBM Plex Mono', monospace;
   color: var(--muted);
