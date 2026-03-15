@@ -78,6 +78,7 @@ drop policy if exists "shifts_modify_manager_only" on public.shifts;
 drop policy if exists "swap_requests_select_team_scope" on public.swap_requests;
 drop policy if exists "swap_requests_insert_own_shift" on public.swap_requests;
 drop policy if exists "swap_requests_update_manager_same_team" on public.swap_requests;
+drop policy if exists "swap_requests_update_target_or_manager_same_team" on public.swap_requests;
 drop policy if exists "swap_requests_select_requester_or_manager" on public.swap_requests;
 drop policy if exists "swap_requests_insert_own_shift_only" on public.swap_requests;
 drop policy if exists "swap_requests_update_manager_only" on public.swap_requests;
@@ -235,6 +236,7 @@ on public.swap_requests
 for select
 using (
   requested_by = auth.uid()
+  or target_employee_id = auth.uid()
   or (
     public.is_manager()
     and exists (
@@ -252,37 +254,60 @@ on public.swap_requests
 for insert
 with check (
   requested_by = auth.uid()
+  and target_employee_id is not null
+  and target_employee_id <> auth.uid()
+  and status = 'pending_target'
   and exists (
     select 1
-    from public.shifts s
-    join public.employees e on e.id = s.employee_id
-    where s.id = shift_id
-      and s.employee_id = auth.uid()
-      and e.team_id = public.current_team_id()
+    from public.shifts target_shift
+    join public.shifts offered_shift on offered_shift.id = public.swap_requests.offered_shift_id
+    join public.employees requester on requester.id = auth.uid()
+    join public.employees target_employee on target_employee.id = public.swap_requests.target_employee_id
+    where target_shift.id = public.swap_requests.shift_id
+      and target_shift.employee_id = public.swap_requests.target_employee_id
+      and offered_shift.employee_id = auth.uid()
+      and requester.team_id = public.current_team_id()
+      and target_employee.team_id = public.current_team_id()
+      and requester.department_id is not null
+      and requester.department_id = target_employee.department_id
   )
 );
 
-create policy "swap_requests_update_manager_same_team"
+create policy "swap_requests_update_target_or_manager_same_team"
 on public.swap_requests
 for update
 using (
-  public.is_manager()
-  and exists (
-    select 1
-    from public.shifts s
-    join public.employees e on e.id = s.employee_id
-    where s.id = public.swap_requests.shift_id
-      and e.team_id = public.current_team_id()
+  (
+    target_employee_id = auth.uid()
+    and status = 'pending_target'
+  )
+  or (
+    public.is_manager()
+    and status = 'pending_manager'
+    and exists (
+      select 1
+      from public.shifts s
+      join public.employees e on e.id = s.employee_id
+      where s.id = public.swap_requests.shift_id
+        and e.team_id = public.current_team_id()
+    )
   )
 )
 with check (
-  public.is_manager()
-  and exists (
-    select 1
-    from public.shifts s
-    join public.employees e on e.id = s.employee_id
-    where s.id = public.swap_requests.shift_id
-      and e.team_id = public.current_team_id()
+  (
+    target_employee_id = auth.uid()
+    and status in ('pending_manager', 'denied')
+  )
+  or (
+    public.is_manager()
+    and status in ('approved', 'denied')
+    and exists (
+      select 1
+      from public.shifts s
+      join public.employees e on e.id = s.employee_id
+      where s.id = public.swap_requests.shift_id
+        and e.team_id = public.current_team_id()
+    )
   )
 );
 
@@ -310,6 +335,14 @@ with check (
       and (
         public.is_manager()
         or recipient.role = 'manager'
+        or exists (
+          select 1
+          from public.employees sender
+          where sender.id = auth.uid()
+            and sender.team_id = public.current_team_id()
+            and sender.department_id is not null
+            and sender.department_id = recipient.department_id
+        )
       )
   )
 );

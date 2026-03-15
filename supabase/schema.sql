@@ -283,14 +283,39 @@ create index if not exists shifts_employee_week_idx on public.shifts (employee_i
 create table if not exists public.swap_requests (
   id uuid primary key default gen_random_uuid(),
   shift_id uuid not null references public.shifts (id) on delete cascade,
+  offered_shift_id uuid references public.shifts (id) on delete cascade,
   requested_by uuid not null references public.employees (id) on delete cascade,
+  target_employee_id uuid references public.employees (id) on delete cascade,
   reason text,
-  status text not null default 'pending' check (status in ('pending', 'approved', 'denied')),
+  status text not null default 'pending_target' check (status in ('pending_target', 'pending_manager', 'approved', 'denied')),
   created_at timestamptz not null default timezone('utc', now())
 );
 
+alter table public.swap_requests
+  add column if not exists offered_shift_id uuid references public.shifts (id) on delete cascade,
+  add column if not exists target_employee_id uuid references public.employees (id) on delete cascade;
+
+update public.swap_requests
+set status = 'pending_manager'
+where status = 'pending';
+
+update public.swap_requests r
+set target_employee_id = s.employee_id
+from public.shifts s
+where r.target_employee_id is null
+  and s.id = r.shift_id;
+
+alter table public.swap_requests
+  drop constraint if exists swap_requests_status_check;
+
+alter table public.swap_requests
+  add constraint swap_requests_status_check
+  check (status in ('pending_target', 'pending_manager', 'approved', 'denied'));
+
 create index if not exists swap_requests_status_idx on public.swap_requests (status);
 create index if not exists swap_requests_requester_idx on public.swap_requests (requested_by);
+create index if not exists swap_requests_target_employee_idx on public.swap_requests (target_employee_id);
+create index if not exists swap_requests_offered_shift_idx on public.swap_requests (offered_shift_id);
 
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
