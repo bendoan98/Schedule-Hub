@@ -30,15 +30,11 @@ using (
   id = auth.uid() or public.is_manager()
 );
 
-create policy "employees_update_self_or_manager"
+create policy "employees_update_manager_only"
 on public.employees
 for update
-using (
-  id = auth.uid() or public.is_manager()
-)
-with check (
-  id = auth.uid() or public.is_manager()
-);
+using (public.is_manager())
+with check (public.is_manager());
 
 create policy "employees_insert_manager"
 on public.employees
