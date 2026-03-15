@@ -18,9 +18,11 @@ import {
 import { hasSupabaseCredentials, supabase } from './lib/supabaseClient';
 import {
   createSwapRequest,
+  createTeamForCurrentUser,
   fetchAppData,
   insertCsvShifts,
   insertMessagePost,
+  joinTeamWithInviteCode,
   markAllNotificationsRead,
   removeShift,
   setSwapRequestStatus,
@@ -30,11 +32,13 @@ import { getMonday, toIsoDate } from './utils/date';
 import { newId } from './utils/id';
 
 const ROLES = ['manager', 'employee'];
+const TEAM_MODES = ['create', 'join'];
 
 export default function App() {
   const isSupabaseMode = Boolean(hasSupabaseCredentials && supabase);
 
   const [employees, setEmployees] = useState(isSupabaseMode ? [] : mockEmployees);
+  const [team, setTeam] = useState(isSupabaseMode ? null : { id: 'local-team', name: 'Demo Team' });
   const [shifts, setShifts] = useState(isSupabaseMode ? [] : mockShifts);
   const [swapRequests, setSwapRequests] = useState(isSupabaseMode ? [] : mockSwapRequests);
   const [notifications, setNotifications] = useState(isSupabaseMode ? [] : mockNotifications);
@@ -46,11 +50,16 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(isSupabaseMode);
   const [dataLoading, setDataLoading] = useState(false);
+
   const [authMode, setAuthMode] = useState('sign_in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [department, setDepartment] = useState('');
+  const [teamSetupMode, setTeamSetupMode] = useState('create');
+  const [teamNameInput, setTeamNameInput] = useState('');
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+
   const [authError, setAuthError] = useState('');
   const [appMessage, setAppMessage] = useState('');
 
@@ -88,6 +97,7 @@ export default function App() {
       const snapshot = await fetchAppData(supabase);
 
       setEmployees(snapshot.employees);
+      setTeam(snapshot.team);
       setShifts(snapshot.shifts);
       setSwapRequests(snapshot.swapRequests);
       setNotifications(snapshot.notifications);
@@ -142,6 +152,7 @@ export default function App() {
 
       if (!nextSession) {
         setEmployees([]);
+        setTeam(null);
         setShifts([]);
         setSwapRequests([]);
         setNotifications([]);
@@ -171,37 +182,46 @@ export default function App() {
 
     const channel = supabase
       .channel(`schedule-hub-realtime-${session.user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'employees' },
-        () => loadSupabaseData()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'shifts' },
-        () => loadSupabaseData()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'swap_requests' },
-        () => loadSupabaseData()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications' },
-        () => loadSupabaseData()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'message_posts' },
-        () => loadSupabaseData()
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => loadSupabaseData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => loadSupabaseData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => loadSupabaseData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'swap_requests' }, () => loadSupabaseData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => loadSupabaseData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_posts' }, () => loadSupabaseData())
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [isSupabaseMode, session, loadSupabaseData]);
+
+  async function completeTeamSetup({ mode, teamName, inviteCode }) {
+    if (!supabase) {
+      return null;
+    }
+
+    if (mode === 'create') {
+      const trimmedTeamName = teamName.trim();
+
+      if (!trimmedTeamName) {
+        throw new Error('Team name is required.');
+      }
+
+      const createdTeam = await createTeamForCurrentUser(supabase, trimmedTeamName);
+      setAppMessage(`Team created: ${createdTeam.name}. Invite code: ${createdTeam.inviteCode}`);
+      return createdTeam;
+    }
+
+    const trimmedInviteCode = inviteCode.trim().toUpperCase();
+
+    if (!trimmedInviteCode) {
+      throw new Error('Invite code is required.');
+    }
+
+    const joinedTeam = await joinTeamWithInviteCode(supabase, trimmedInviteCode);
+    setAppMessage(`Joined team: ${joinedTeam.name}.`);
+    return joinedTeam;
+  }
 
   function addLocalNotification(title, body) {
     setNotifications((previous) => [
@@ -244,7 +264,7 @@ export default function App() {
       const skippedShiftCount = result.importedShifts.length - validShifts.length;
 
       if (validShifts.length === 0) {
-        return 'No shifts imported. CSV employee_name values must match existing employees in Supabase.';
+        return 'No shifts imported. CSV employee_name values must match employees in your team.';
       }
 
       const insertedCount = await insertCsvShifts(supabase, validShifts, weekStart);
@@ -427,7 +447,15 @@ export default function App() {
   async function handleAddBoardPost(newPost) {
     if (isSupabaseMode && session && supabase) {
       try {
-        await insertMessagePost(supabase, newPost);
+        if (!team?.id) {
+          throw new Error('Join or create a team before posting.');
+        }
+
+        await insertMessagePost(supabase, {
+          ...newPost,
+          teamId: team.id
+        });
+
         await loadSupabaseData();
       } catch (error) {
         setAppMessage(error.message);
@@ -481,6 +509,16 @@ export default function App() {
       return;
     }
 
+    if (teamSetupMode === 'create' && !teamNameInput.trim()) {
+      setAuthError('Team name is required to create a team.');
+      return;
+    }
+
+    if (teamSetupMode === 'join' && !inviteCodeInput.trim()) {
+      setAuthError('Invite code is required to join a team.');
+      return;
+    }
+
     setAuthError('');
     setAppMessage('');
 
@@ -505,12 +543,48 @@ export default function App() {
     setDepartment('');
 
     if (data.session) {
-      setAppMessage('Account created and signed in.');
+      try {
+        await completeTeamSetup({
+          mode: teamSetupMode,
+          teamName: teamNameInput,
+          inviteCode: inviteCodeInput
+        });
+
+        await loadSupabaseData();
+      } catch (setupError) {
+        setAuthError(setupError.message);
+        setAppMessage('Account created. Finish team setup below.');
+      }
+
       return;
     }
 
     setAuthMode('sign_in');
-    setAppMessage('Sign-up successful. Check your email to confirm your account, then sign in.');
+    setAppMessage('Sign-up successful. Confirm your email, then sign in to finish team setup.');
+  }
+
+  async function handleTeamSetupSubmit(event) {
+    event.preventDefault();
+
+    if (!supabase) {
+      return;
+    }
+
+    setAuthError('');
+
+    try {
+      await completeTeamSetup({
+        mode: teamSetupMode,
+        teamName: teamNameInput,
+        inviteCode: inviteCodeInput
+      });
+
+      await loadSupabaseData();
+      setTeamNameInput('');
+      setInviteCodeInput('');
+    } catch (error) {
+      setAuthError(error.message);
+    }
   }
 
   async function handleSignOut() {
@@ -526,7 +600,9 @@ export default function App() {
   }
 
   const showAuthPanel = isSupabaseMode && !session;
-  const showCoreApp = !showAuthPanel;
+  const missingProfile = isSupabaseMode && session && !dataLoading && !currentUser;
+  const needsTeamSetup = isSupabaseMode && session && !dataLoading && currentUser && !currentUser.teamId;
+  const showCoreApp = !showAuthPanel && !missingProfile && !needsTeamSetup;
 
   return (
     <div className="app-shell">
@@ -540,7 +616,11 @@ export default function App() {
           ) : null}
 
           {isSupabaseMode && session ? (
-            <p className="status-banner">Connected to Supabase as {session.user.email}</p>
+            <p className="status-banner">
+              Connected as {session.user.email}
+              {team?.name ? ` | Team: ${team.name}` : ''}
+              {team?.inviteCode && role === 'manager' ? ` | Invite Code: ${team.inviteCode}` : ''}
+            </p>
           ) : null}
 
           {appMessage ? <p className="status-banner">{appMessage}</p> : null}
@@ -599,7 +679,7 @@ export default function App() {
               type="button"
               onClick={() => setWeekStart(toIsoDate(subWeeks(weekDate, 1)))}
               aria-label="Previous week"
-              disabled={showAuthPanel || authLoading}
+              disabled={showAuthPanel || authLoading || needsTeamSetup || missingProfile}
             >
               Prev
             </button>
@@ -607,7 +687,7 @@ export default function App() {
               type="button"
               onClick={() => setWeekStart(toIsoDate(addWeeks(weekDate, 1)))}
               aria-label="Next week"
-              disabled={showAuthPanel || authLoading}
+              disabled={showAuthPanel || authLoading || needsTeamSetup || missingProfile}
             >
               Next
             </button>
@@ -626,7 +706,7 @@ export default function App() {
           <h3>{authMode === 'sign_up' ? 'Create Account' : 'Sign In to Supabase'}</h3>
           <p>
             {authMode === 'sign_up'
-              ? 'New accounts are created as employee users.'
+              ? 'During sign-up, choose to create a team or join one with an invite code.'
               : 'Sign in with your email and password.'}
           </p>
 
@@ -685,7 +765,7 @@ export default function App() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                autoComplete="current-password"
+                autoComplete={authMode === 'sign_up' ? 'new-password' : 'current-password'}
               />
             </label>
 
@@ -702,8 +782,108 @@ export default function App() {
               </label>
             ) : null}
 
+            {authMode === 'sign_up' ? (
+              <>
+                <div className="auth-mode-toggle" role="tablist" aria-label="Team setup mode">
+                  {TEAM_MODES.map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={teamSetupMode === mode ? 'active' : ''}
+                      onClick={() => setTeamSetupMode(mode)}
+                    >
+                      {mode === 'create' ? 'Create Team' : 'Join Team'}
+                    </button>
+                  ))}
+                </div>
+
+                {teamSetupMode === 'create' ? (
+                  <label>
+                    Team Name
+                    <input
+                      type="text"
+                      value={teamNameInput}
+                      onChange={(event) => setTeamNameInput(event.target.value)}
+                      placeholder="Downtown Ops"
+                      required
+                    />
+                  </label>
+                ) : (
+                  <label>
+                    Invite Code
+                    <input
+                      type="text"
+                      value={inviteCodeInput}
+                      onChange={(event) => setInviteCodeInput(event.target.value.toUpperCase())}
+                      placeholder="ABC12345"
+                      required
+                    />
+                  </label>
+                )}
+              </>
+            ) : null}
+
             <button type="submit" className="primary">
               {authMode === 'sign_up' ? 'Create Account' : 'Sign In'}
+            </button>
+          </form>
+
+          {authError ? <p className="status-banner">{authError}</p> : null}
+        </section>
+      ) : null}
+
+      {missingProfile ? (
+        <section className="panel auth-panel">
+          <h3>Profile Not Found</h3>
+          <p>Your auth user does not have an `employees` row yet. Re-run `supabase/schema.sql` and try signing in again.</p>
+        </section>
+      ) : null}
+
+      {needsTeamSetup ? (
+        <section className="panel auth-panel">
+          <h3>Set Up Your Team</h3>
+          <p>Create a new team (you become manager) or join an existing one with an invite code.</p>
+
+          <form className="auth-form" onSubmit={handleTeamSetupSubmit}>
+            <div className="auth-mode-toggle" role="tablist" aria-label="Team setup mode">
+              {TEAM_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={teamSetupMode === mode ? 'active' : ''}
+                  onClick={() => setTeamSetupMode(mode)}
+                >
+                  {mode === 'create' ? 'Create Team' : 'Join Team'}
+                </button>
+              ))}
+            </div>
+
+            {teamSetupMode === 'create' ? (
+              <label>
+                Team Name
+                <input
+                  type="text"
+                  value={teamNameInput}
+                  onChange={(event) => setTeamNameInput(event.target.value)}
+                  placeholder="Downtown Ops"
+                  required
+                />
+              </label>
+            ) : (
+              <label>
+                Invite Code
+                <input
+                  type="text"
+                  value={inviteCodeInput}
+                  onChange={(event) => setInviteCodeInput(event.target.value.toUpperCase())}
+                  placeholder="ABC12345"
+                  required
+                />
+              </label>
+            )}
+
+            <button type="submit" className="primary">
+              Continue
             </button>
           </form>
 

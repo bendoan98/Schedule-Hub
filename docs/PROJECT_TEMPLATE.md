@@ -4,6 +4,7 @@ This repository now includes a full starter template based on `README.md`:
 
 - React 18 + Vite frontend
 - Supabase client bootstrap (`src/lib/supabaseClient.js`)
+- Team-based onboarding (create team or join via invite code at sign-up)
 - Weekly calendar grid with role-specific behavior
 - CSV import parser and uploader
 - Shift add/edit/delete modal
@@ -48,11 +49,17 @@ Run SQL in this order:
 
 If your auth users already exist, replace placeholder UUIDs in `seed.sql` with real `auth.users.id` values.
 
-`schema.sql` includes an auth trigger that auto-creates an `employees` row for new signups (default role: `employee`).
+`schema.sql` includes:
+
+- Auth trigger to auto-create an `employees` row for new signups.
+- `teams` table with invite code generation.
+- RPC functions to create or join a team:
+  - `create_team_for_current_user`
+  - `join_team_with_invite_code`
 
 ## Current Integration
 
 The template supports both:
 
 - Mock mode when Supabase env vars are missing.
-- Live Supabase mode with email/password sign-in, sign-up, CRUD, and realtime sync.
+- Live Supabase mode with email/password sign-in, sign-up, team onboarding, CRUD, and realtime sync.

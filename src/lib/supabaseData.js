@@ -9,11 +9,22 @@ function normalizeError(error, fallback) {
 function mapEmployee(row) {
   return {
     id: row.id,
+    teamId: row.team_id,
     name: row.name,
     email: row.email,
     role: row.role,
     department: row.department,
     colorIndex: row.color_index ?? 0
+  };
+}
+
+function mapTeam(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    inviteCode: row.invite_code,
+    createdBy: row.created_by,
+    createdAt: row.created_at
   };
 }
 
@@ -42,6 +53,7 @@ function mapSwapRequest(row) {
 function mapNotification(row) {
   return {
     id: row.id,
+    teamId: row.team_id,
     targetEmployeeId: row.target_employee_id,
     title: row.title,
     body: row.body,
@@ -53,6 +65,7 @@ function mapNotification(row) {
 function mapMessagePost(row) {
   return {
     id: row.id,
+    teamId: row.team_id,
     authorId: row.author_id,
     kind: row.kind,
     message: row.message,
@@ -70,12 +83,31 @@ function shiftPayload(shift, weekStart) {
   };
 }
 
+function mapRpcTeamResult(data, fallbackErrorMessage) {
+  const row = Array.isArray(data) ? data[0] : data;
+
+  if (!row) {
+    throw new Error(fallbackErrorMessage);
+  }
+
+  return {
+    id: row.team_id,
+    name: row.team_name,
+    inviteCode: row.invite_code,
+    assignedRole: row.assigned_role
+  };
+}
+
 export async function fetchAppData(client) {
-  const [employeesRes, shiftsRes, swapRes, notificationsRes, postsRes] = await Promise.all([
+  const [employeesRes, teamsRes, shiftsRes, swapRes, notificationsRes, postsRes] = await Promise.all([
     client
       .from('employees')
-      .select('id, name, email, role, department, color_index')
+      .select('id, team_id, name, email, role, department, color_index')
       .order('name', { ascending: true }),
+    client
+      .from('teams')
+      .select('id, name, invite_code, created_by, created_at')
+      .limit(1),
     client
       .from('shifts')
       .select('id, employee_id, day, start_time, end_time, week_start')
@@ -86,16 +118,17 @@ export async function fetchAppData(client) {
       .order('created_at', { ascending: false }),
     client
       .from('notifications')
-      .select('id, target_employee_id, title, body, read, created_at')
+      .select('id, team_id, target_employee_id, title, body, read, created_at')
       .order('created_at', { ascending: false }),
     client
       .from('message_posts')
-      .select('id, author_id, kind, message, created_at')
+      .select('id, team_id, author_id, kind, message, created_at')
       .order('created_at', { ascending: false })
   ]);
 
   const firstError =
     employeesRes.error ||
+    teamsRes.error ||
     shiftsRes.error ||
     swapRes.error ||
     notificationsRes.error ||
@@ -109,11 +142,36 @@ export async function fetchAppData(client) {
 
   return {
     employees: (employeesRes.data ?? []).map(mapEmployee),
+    team: teamsRes.data?.[0] ? mapTeam(teamsRes.data[0]) : null,
     shifts: (shiftsRes.data ?? []).map(mapShift),
     swapRequests: (swapRes.data ?? []).map(mapSwapRequest),
     notifications: (notificationsRes.data ?? []).map(mapNotification),
     boardPosts: (postsRes.data ?? []).map(mapMessagePost)
   };
+}
+
+export async function createTeamForCurrentUser(client, teamName) {
+  const { data, error } = await client.rpc('create_team_for_current_user', {
+    p_team_name: teamName
+  });
+
+  if (error) {
+    throw normalizeError(error, 'Unable to create team.');
+  }
+
+  return mapRpcTeamResult(data, 'Unable to read created team response.');
+}
+
+export async function joinTeamWithInviteCode(client, inviteCode) {
+  const { data, error } = await client.rpc('join_team_with_invite_code', {
+    p_invite_code: inviteCode
+  });
+
+  if (error) {
+    throw normalizeError(error, 'Unable to join team with invite code.');
+  }
+
+  return mapRpcTeamResult(data, 'Unable to read joined team response.');
 }
 
 export async function upsertShift(client, shift, weekStart) {
@@ -181,6 +239,7 @@ export async function markAllNotificationsRead(client, { role, currentEmployeeId
 
 export async function insertMessagePost(client, post) {
   const { error } = await client.from('message_posts').insert({
+    team_id: post.teamId,
     author_id: post.authorId,
     kind: post.kind,
     message: post.message
