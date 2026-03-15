@@ -314,14 +314,14 @@ export default function App() {
 
       const insertedCount = await insertCsvShifts(supabase, validShifts, importWeekStart);
 
-      if (team?.id) {
-        const employeeNotifications = employees
-          .filter((employee) => employee.role === 'employee')
-          .map((employee) => ({
-            teamId: team.id,
-            targetEmployeeId: employee.id,
-            title: 'New Schedule Available',
-            body: `A new schedule was published for the week of ${importWeekStart}.`
+        if (team?.id) {
+          const employeeNotifications = employees
+            .filter((employee) => employee.role === 'employee' && employee.id !== currentEmployeeId)
+            .map((employee) => ({
+              teamId: team.id,
+              targetEmployeeId: employee.id,
+              title: 'New Schedule Available',
+              body: `A new schedule was published for the week of ${importWeekStart}.`
           }));
 
         await insertNotifications(supabase, employeeNotifications);
@@ -439,7 +439,7 @@ export default function App() {
 
         if (team?.id) {
           const managerNotifications = employees
-            .filter((employee) => employee.role === 'manager')
+            .filter((employee) => employee.role === 'manager' && employee.id !== currentEmployeeId)
             .map((employee) => ({
               teamId: team.id,
               targetEmployeeId: employee.id,
@@ -489,6 +489,10 @@ export default function App() {
 
           if (relatedShift?.employeeId) {
             addressedEmployees.add(relatedShift.employeeId);
+          }
+
+          if (currentEmployeeId) {
+            addressedEmployees.delete(currentEmployeeId);
           }
 
           await insertNotifications(
@@ -588,16 +592,21 @@ export default function App() {
         }
 
         if (team?.id) {
-          await insertNotifications(supabase, [
-            {
-              teamId: team.id,
-              targetEmployeeId: employeeId,
-              title: 'Department Updated',
-              body: `Your department changed from ${
-                previousEmployee?.department ?? 'no department'
-              } to ${nextDepartment}.`
-            }
-          ]);
+          const departmentNotifications =
+            employeeId === currentEmployeeId
+              ? []
+              : [
+                  {
+                    teamId: team.id,
+                    targetEmployeeId: employeeId,
+                    title: 'Department Updated',
+                    body: `Your department changed from ${
+                      previousEmployee?.department ?? 'no department'
+                    } to ${nextDepartment}.`
+                  }
+                ];
+
+          await insertNotifications(supabase, departmentNotifications);
         }
 
         await loadSupabaseData();
@@ -695,7 +704,11 @@ export default function App() {
         }
 
         const affectedEmployeeIds = employees
-          .filter((employee) => toStoredDepartment(employee.department) === sourceDepartment)
+          .filter(
+            (employee) =>
+              toStoredDepartment(employee.department) === sourceDepartment &&
+              employee.id !== currentEmployeeId
+          )
           .map((employee) => employee.id);
 
         await replaceDepartmentForTeam(supabase, {
@@ -767,7 +780,11 @@ export default function App() {
         }
 
         const affectedEmployeeIds = employees
-          .filter((employee) => toStoredDepartment(employee.department) === sourceDepartment)
+          .filter(
+            (employee) =>
+              toStoredDepartment(employee.department) === sourceDepartment &&
+              employee.id !== currentEmployeeId
+          )
           .map((employee) => employee.id);
 
         await replaceDepartmentForTeam(supabase, {
