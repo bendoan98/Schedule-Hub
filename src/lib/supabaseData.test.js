@@ -12,6 +12,7 @@ import {
   joinTeamWithInviteCode,
   markAllNotificationsRead,
   removeShift,
+  removeSwapRequest,
   renameDepartment,
   replaceDepartmentForTeam,
   setSwapRequestStatus,
@@ -384,6 +385,7 @@ describe('supabaseData', () => {
       reason: ''
     });
     await setSwapRequestStatus(client, 'r1', 'approved');
+    await removeSwapRequest(client, 'r1');
     await markAllNotificationsRead(client);
     await insertMessagePost(client, { teamId: 't1', authorId: 'e1', kind: 'manager', message: 'note' });
 
@@ -397,6 +399,7 @@ describe('supabaseData', () => {
       status: 'pending_target'
     });
     expect(client.handlers.get('swap_requests').update).toHaveBeenCalledWith({ status: 'approved' });
+    expect(client.handlers.get('swap_requests').delete).toHaveBeenCalledTimes(1);
     expect(client.handlers.get('notifications').update).toHaveBeenCalledTimes(1);
     expect(client.handlers.get('message_posts').insert).toHaveBeenCalledWith({
       team_id: 't1',

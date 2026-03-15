@@ -24,7 +24,8 @@ export default function SwapRequestsPanel({
   swapRequests,
   shifts,
   employees,
-  onDecision
+  onDecision,
+  onCancel
 }) {
   const shiftsById = new Map(shifts.map((shift) => [shift.id, shift]));
   const employeesById = new Map(employees.map((employee) => [employee.id, employee]));
@@ -54,6 +55,10 @@ export default function SwapRequestsPanel({
             request.status === 'pending_target' &&
             request.targetEmployeeId === currentEmployeeId;
           const canManagerDecide = role === 'manager' && request.status === 'pending_manager';
+          const canRequesterCancel =
+            role === 'employee' &&
+            request.requestedBy === currentEmployeeId &&
+            request.status?.startsWith('pending');
 
           return (
             <article key={request.id} className="request-item">
@@ -85,6 +90,14 @@ export default function SwapRequestsPanel({
                   </button>
                   <button type="button" onClick={() => onDecision(request.id, 'denied')}>
                     Final Deny
+                  </button>
+                </div>
+              ) : null}
+
+              {canRequesterCancel ? (
+                <div className="request-actions">
+                  <button type="button" className="danger" onClick={() => onCancel?.(request.id)}>
+                    Cancel Request
                   </button>
                 </div>
               ) : null}

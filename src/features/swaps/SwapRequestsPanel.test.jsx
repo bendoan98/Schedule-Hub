@@ -52,6 +52,7 @@ describe('SwapRequestsPanel', () => {
 
   it('lets target employees accept or deny incoming peer requests', () => {
     const onDecision = vi.fn();
+    const onCancel = vi.fn();
 
     render(
       <SwapRequestsPanel
@@ -61,6 +62,7 @@ describe('SwapRequestsPanel', () => {
         shifts={shifts}
         employees={employees}
         onDecision={onDecision}
+        onCancel={onCancel}
       />
     );
 
@@ -70,5 +72,27 @@ describe('SwapRequestsPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^deny$/i }));
     expect(onDecision).toHaveBeenCalledWith('r2', 'denied');
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('lets requesters cancel their own pending requests', () => {
+    const onDecision = vi.fn();
+    const onCancel = vi.fn();
+
+    render(
+      <SwapRequestsPanel
+        role="employee"
+        currentEmployeeId="e1"
+        swapRequests={swapRequests}
+        shifts={shifts}
+        employees={employees}
+        onDecision={onDecision}
+        onCancel={onCancel}
+      />
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: /cancel request/i })[0]);
+    expect(onCancel).toHaveBeenCalledWith('r1');
+    expect(onDecision).not.toHaveBeenCalled();
   });
 });

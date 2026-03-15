@@ -414,6 +414,14 @@ export async function setSwapRequestStatus(client, requestId, status) {
   }
 }
 
+export async function removeSwapRequest(client, requestId) {
+  const { error } = await client.from('swap_requests').delete().eq('id', requestId);
+
+  if (error) {
+    throw normalizeError(error, 'Unable to cancel swap request.');
+  }
+}
+
 export async function markAllNotificationsRead(client) {
   const { error } = await client
     .from('notifications')

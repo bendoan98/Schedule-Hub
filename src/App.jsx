@@ -32,6 +32,7 @@ import {
   renameDepartment,
   replaceDepartmentForTeam,
   removeShift,
+  removeSwapRequest,
   setSwapRequestStatus,
   updateEmployeeDepartment,
   upsertShift
@@ -761,6 +762,52 @@ export default function App() {
     } else {
       addLocalNotification('Swap Request Denied', 'A swap request was denied.');
     }
+  }
+
+  async function handleCancelSwapRequest(requestId) {
+    const request = swapRequests.find((item) => item.id === requestId);
+    const requestedShift = request ? shifts.find((shift) => shift.id === request.shiftId) : null;
+    const offeredShift = request ? shifts.find((shift) => shift.id === request.offeredShiftId) : null;
+
+    if (!request || request.requestedBy !== currentEmployeeId || !request.status?.startsWith('pending')) {
+      return;
+    }
+
+    if (isSupabaseMode && session && supabase) {
+      try {
+        await removeSwapRequest(supabase, requestId);
+
+        if (team?.id) {
+          const managerIds =
+            request.status === 'pending_manager'
+              ? employees
+                  .filter((employee) => employee.role === 'manager')
+                  .map((employee) => employee.id)
+              : [];
+
+          await insertNotifications(
+            supabase,
+            buildNotificationTargets(
+              [request.targetEmployeeId, ...managerIds],
+              'Swap Request Cancelled',
+              `${currentUser?.name ?? 'A teammate'} cancelled the trade request for ${toShiftSummary(
+                offeredShift
+              )} and ${toShiftSummary(requestedShift)}.`
+            )
+          );
+        }
+
+        await loadSupabaseData();
+        setAppMessage('Swap request cancelled.');
+      } catch (error) {
+        setAppMessage(error.message);
+      }
+
+      return;
+    }
+
+    setSwapRequests((previous) => previous.filter((item) => item.id !== requestId));
+    addLocalNotification('Swap Request Cancelled', 'Your pending swap request was cancelled.');
   }
 
   async function handleMarkAllRead() {
@@ -1599,6 +1646,7 @@ export default function App() {
                 shifts={shifts}
                 employees={employees}
                 onDecision={handleSwapDecision}
+                onCancel={handleCancelSwapRequest}
               />
             ) : null
           ) : null}

@@ -52,6 +52,7 @@ const supabaseDataMock = vi.hoisted(() => ({
   renameDepartment: vi.fn(),
   replaceDepartmentForTeam: vi.fn(),
   removeShift: vi.fn(),
+  removeSwapRequest: vi.fn(),
   setSwapRequestStatus: vi.fn(),
   updateEmployeeDepartment: vi.fn(),
   upsertShift: vi.fn()

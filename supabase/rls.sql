@@ -79,6 +79,7 @@ drop policy if exists "swap_requests_select_team_scope" on public.swap_requests;
 drop policy if exists "swap_requests_insert_own_shift" on public.swap_requests;
 drop policy if exists "swap_requests_update_manager_same_team" on public.swap_requests;
 drop policy if exists "swap_requests_update_target_or_manager_same_team" on public.swap_requests;
+drop policy if exists "swap_requests_delete_requester_pending" on public.swap_requests;
 drop policy if exists "swap_requests_select_requester_or_manager" on public.swap_requests;
 drop policy if exists "swap_requests_insert_own_shift_only" on public.swap_requests;
 drop policy if exists "swap_requests_update_manager_only" on public.swap_requests;
@@ -308,6 +309,21 @@ with check (
       where s.id = public.swap_requests.shift_id
         and e.team_id = public.current_team_id()
     )
+  )
+);
+
+create policy "swap_requests_delete_requester_pending"
+on public.swap_requests
+for delete
+using (
+  requested_by = auth.uid()
+  and status in ('pending_target', 'pending_manager')
+  and exists (
+    select 1
+    from public.shifts s
+    join public.employees e on e.id = s.employee_id
+    where s.id = public.swap_requests.shift_id
+      and e.team_id = public.current_team_id()
   )
 );
 
