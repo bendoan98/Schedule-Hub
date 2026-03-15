@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getShiftDate } from '../../utils/date';
 
 function toIcsDate(date, time) {
@@ -78,6 +78,7 @@ export default function ExportButtons({
   compactLabel = 'Calendar Export'
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef(null);
   const employeesById = new Map(employees.map((employee) => [employee.id, employee]));
 
   const personalShifts = shifts.filter(
@@ -106,9 +107,37 @@ export default function ExportButtons({
     setIsOpen(false);
   }
 
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    function handleOutsidePointerDown(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsidePointerDown);
+    document.addEventListener('touchstart', handleOutsidePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsidePointerDown);
+      document.removeEventListener('touchstart', handleOutsidePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen]);
+
   if (compact) {
     return (
-      <div className={`export-menu ${isOpen ? 'open' : ''}`}>
+      <div ref={menuRef} className={`export-menu ${isOpen ? 'open' : ''}`}>
         <button type="button" onClick={() => setIsOpen((value) => !value)} className="export-menu-button">
           {compactLabel}
         </button>
