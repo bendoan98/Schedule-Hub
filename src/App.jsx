@@ -987,17 +987,19 @@ export default function App() {
             />
           )}
 
-          <MessageBoard
-            posts={postsWithAuthors}
-            currentUser={
-              currentUser ?? {
-                id: currentEmployeeId,
-                name: session?.user?.email ?? 'Unknown User'
+          {!isManagerPage ? (
+            <MessageBoard
+              posts={postsWithAuthors}
+              currentUser={
+                currentUser ?? {
+                  id: currentEmployeeId,
+                  name: session?.user?.email ?? 'Unknown User'
+                }
               }
-            }
-            role={role}
-            onAddPost={handleAddBoardPost}
-          />
+              role={role}
+              onAddPost={handleAddBoardPost}
+            />
+          ) : null}
 
           {editingShift ? (
             <ShiftEditorModal
