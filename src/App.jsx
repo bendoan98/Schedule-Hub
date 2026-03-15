@@ -70,6 +70,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [oauthLoadingProvider, setOauthLoadingProvider] = useState('');
   const [fullName, setFullName] = useState('');
   const [teamSetupMode, setTeamSetupMode] = useState('create');
   const [teamNameInput, setTeamNameInput] = useState('');
@@ -968,26 +969,33 @@ export default function App() {
   }
 
   async function handleOAuthSignIn(provider) {
-    if (!supabase) {
+    if (!supabase || oauthLoadingProvider) {
       return;
     }
 
     setAuthError('');
     setAppMessage('');
+    setOauthLoadingProvider(provider);
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: window.location.origin
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+
+      if (error) {
+        setAuthError(error.message);
+        setOauthLoadingProvider('');
+        return;
       }
-    });
 
-    if (error) {
-      setAuthError(error.message);
-      return;
+      setAppMessage(`Redirecting to ${provider === 'google' ? 'Google' : 'Facebook'}...`);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'OAuth sign-in failed.');
+      setOauthLoadingProvider('');
     }
-
-    setAppMessage(`Redirecting to ${provider === 'google' ? 'Google' : 'Facebook'}...`);
   }
 
   const showAuthPanel = isSupabaseMode && !session;
@@ -1201,17 +1209,33 @@ export default function App() {
             <div className="auth-social-row">
               <button
                 type="button"
-                className="auth-social-button"
+                className={`auth-social-button ${oauthLoadingProvider === 'google' ? 'is-loading' : ''}`}
+                disabled={Boolean(oauthLoadingProvider)}
+                aria-busy={oauthLoadingProvider === 'google'}
                 onClick={() => handleOAuthSignIn('google')}
               >
-                Google
+                <span className="auth-social-icon" aria-hidden="true">
+                  G
+                </span>
+                <span>{oauthLoadingProvider === 'google' ? 'Connecting...' : 'Google'}</span>
+                {oauthLoadingProvider === 'google' ? (
+                  <span className="auth-social-spinner" aria-hidden="true" />
+                ) : null}
               </button>
               <button
                 type="button"
-                className="auth-social-button"
+                className={`auth-social-button ${oauthLoadingProvider === 'facebook' ? 'is-loading' : ''}`}
+                disabled={Boolean(oauthLoadingProvider)}
+                aria-busy={oauthLoadingProvider === 'facebook'}
                 onClick={() => handleOAuthSignIn('facebook')}
               >
-                Facebook
+                <span className="auth-social-icon" aria-hidden="true">
+                  f
+                </span>
+                <span>{oauthLoadingProvider === 'facebook' ? 'Connecting...' : 'Facebook'}</span>
+                {oauthLoadingProvider === 'facebook' ? (
+                  <span className="auth-social-spinner" aria-hidden="true" />
+                ) : null}
               </button>
             </div>
           </form>
