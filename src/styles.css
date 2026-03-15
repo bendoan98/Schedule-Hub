@@ -233,13 +233,14 @@ button.danger {
 
 .main-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 0.8fr);
+  grid-template-columns: 1fr;
   gap: 1rem;
   align-items: start;
 }
 
 .side-column {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1rem;
 }
 
@@ -635,10 +636,6 @@ button.danger {
 }
 
 @media (max-width: 1150px) {
-  .main-layout {
-    grid-template-columns: 1fr;
-  }
-
   .calendar-grid {
     grid-template-columns: 180px repeat(7, minmax(120px, 1fr));
   }
