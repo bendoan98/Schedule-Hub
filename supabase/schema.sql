@@ -175,14 +175,14 @@ begin
 
   insert into public.departments (team_id, name)
   values (created_team.id, 'UNASSIGNED')
-  on conflict (team_id, name) do nothing;
+  on conflict on constraint departments_team_name_unique do nothing;
 
   insert into public.departments (team_id, name)
   select created_team.id, e.department
   from public.employees e
   where e.id = current_user_id
     and nullif(trim(e.department), '') is not null
-  on conflict (team_id, name) do nothing;
+  on conflict on constraint departments_team_name_unique do nothing;
 
   return query
   select created_team.id, created_team.name, created_team.invite_code, 'manager'::text;
@@ -231,14 +231,14 @@ begin
 
   insert into public.departments (team_id, name)
   values (requested_team.id, 'UNASSIGNED')
-  on conflict (team_id, name) do nothing;
+  on conflict on constraint departments_team_name_unique do nothing;
 
   insert into public.departments (team_id, name)
   select requested_team.id, e.department
   from public.employees e
   where e.id = current_user_id
     and nullif(trim(e.department), '') is not null
-  on conflict (team_id, name) do nothing;
+  on conflict on constraint departments_team_name_unique do nothing;
 
   return query
   select requested_team.id, requested_team.name, requested_team.invite_code, 'employee'::text;
