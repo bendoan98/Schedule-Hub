@@ -88,7 +88,21 @@ export default function App() {
       return employees;
     }
 
-    return employees.filter((employee) => employee.id === currentEmployeeId);
+    const activeEmployee = employees.find((employee) => employee.id === currentEmployeeId);
+
+    if (!activeEmployee) {
+      return [];
+    }
+
+    const activeDepartment = normalizeDepartmentName(activeEmployee.department);
+
+    if (!activeDepartment) {
+      return [activeEmployee];
+    }
+
+    return employees.filter(
+      (employee) => normalizeDepartmentName(employee.department) === activeDepartment
+    );
   }, [employees, role, currentEmployeeId]);
 
   const departments = useMemo(() => {
