@@ -713,6 +713,17 @@ export default function App() {
           ) : null}
 
           {showCoreApp ? (
+            role === 'manager' ? (
+              <CsvImportForm
+                weekStart={weekStart}
+                employees={employees}
+                onImport={handleCsvImport}
+                compact
+              />
+            ) : null
+          ) : null}
+
+          {showCoreApp ? (
             <NotificationBell notifications={notifications} onMarkAllRead={handleMarkAllRead} />
           ) : null}
         </div>
@@ -920,10 +931,6 @@ export default function App() {
             role={role}
             currentEmployeeId={currentEmployeeId}
           />
-
-          {role === 'manager' ? (
-            <CsvImportForm weekStart={weekStart} employees={employees} onImport={handleCsvImport} />
-          ) : null}
 
           <main className="main-layout">
             <WeeklyCalendar

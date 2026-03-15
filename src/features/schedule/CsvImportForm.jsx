@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { parseScheduleCsv } from '../../utils/csv';
 
-export default function CsvImportForm({ weekStart, employees, onImport }) {
+export default function CsvImportForm({ weekStart, employees, onImport, compact = false }) {
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const inputRef = useRef(null);
 
   async function handleFileChange(event) {
     const file = event.target.files?.[0];
@@ -26,6 +27,30 @@ export default function CsvImportForm({ weekStart, employees, onImport }) {
       setIsLoading(false);
       event.target.value = '';
     }
+  }
+
+  if (compact) {
+    return (
+      <div className="csv-import-inline">
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleFileChange}
+          disabled={isLoading}
+          className="sr-only-file-input"
+        />
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={isLoading}
+          title="Accepted columns: role, employee_name, monday through sunday."
+        >
+          {isLoading ? 'Importing...' : 'Import CSV'}
+        </button>
+        {status ? <small className="csv-inline-status">{status}</small> : null}
+      </div>
+    );
   }
 
   return (
