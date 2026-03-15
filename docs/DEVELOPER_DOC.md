@@ -72,6 +72,31 @@ Coverage output:
 - `coverage/coverage-summary.json`
 - console text report
 
+## Adding New Tests
+1. Create tests next to the source file using `*.test.js`.
+2. Import Vitest helpers:
+
+```js
+import { describe, expect, it } from 'vitest';
+```
+
+3. Use `describe` blocks per module/function and keep test names behavior-focused.
+4. Prefer deterministic inputs/outputs (avoid time/network randomness unless mocked).
+5. Run:
+   - `npm test` for quick validation
+   - `npm run coverage` to verify impact on coverage
+
+Example layout:
+
+```text
+src/utils/date.js
+src/utils/date.test.js
+```
+
+Notes:
+- Current test environment is `node` (configured in `vite.config.js`), which is best for utility and data-layer tests.
+- If you add React component tests, switch to or scope `jsdom` in test config.
+
 ## Supabase Setup
 Run SQL in this order:
 1. `supabase/schema.sql`
