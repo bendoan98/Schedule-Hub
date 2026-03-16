@@ -1447,6 +1447,21 @@ button.shift-chip {
     --color-6: #0f7185;
     --color-7: #9a4038;
   }
+
+  .panel,
+  .stat-card,
+  .calendar-head,
+  .employee-name,
+  .chat-window-header,
+  .chat-bubble,
+  .auth-template-toggle button,
+  .auth-input-wrap {
+    background: #ffffff;
+  }
+
+  .chat-bubble-button {
+    background: #ffffff;
+  }
 }
 
 .modal-form {
