@@ -491,13 +491,14 @@ button.danger:not(:disabled):hover {
 
 .chat-window {
   width: min(420px, calc(100vw - 2rem));
-  max-height: min(72vh, 640px);
+  height: min(72vh, 640px);
   border: 1px solid var(--border);
   border-radius: 1rem;
   background: var(--overlay-bg);
   box-shadow: var(--shadow);
   overflow: hidden;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .chat-window-header {
@@ -549,16 +550,119 @@ button.danger:not(:disabled):hover {
   background: transparent;
   border: 0;
   box-shadow: none;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 0.6rem;
 }
 
-.chat-window .board-form {
-  margin-bottom: 0.5rem;
-}
-
-.chat-window .board-list {
-  max-height: 300px;
+.chat-stream {
+  min-height: 180px;
+  max-height: 360px;
   overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
   padding-right: 0.15rem;
+}
+
+.chat-empty {
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin: 0.1rem 0;
+}
+
+.chat-message {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.chat-message.self {
+  justify-items: end;
+}
+
+.chat-message.other {
+  justify-items: start;
+}
+
+.chat-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chat-meta strong {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.chat-meta small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.chat-bubble {
+  max-width: min(85%, 300px);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  padding: 0.45rem 0.6rem;
+  background: color-mix(in srgb, var(--bg-elevated) 84%, var(--overlay-bg));
+  line-height: 1.4;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-message.self .chat-bubble {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-elevated));
+}
+
+.chat-message.announcement .chat-bubble {
+  border-style: dashed;
+}
+
+.chat-kind-tag {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.chat-composer {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.chat-kind-toggle {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.chat-kind-toggle button {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+.chat-kind-toggle button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chat-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 0.45rem;
+}
+
+.chat-input-row textarea {
+  min-height: 2.5rem;
+  max-height: 7rem;
+  resize: vertical;
+}
+
+.chat-send-btn {
+  min-height: 2.4rem;
+  padding: 0.45rem 0.8rem;
 }
 
 .roster-list {
