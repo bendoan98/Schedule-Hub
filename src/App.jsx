@@ -716,7 +716,6 @@ export default function App() {
       <header className="app-header">
         <div>
           <h1>Schedule Hub</h1>
-          <p>Employee scheduling template with Supabase-ready architecture.</p>
 
           {!isSupabaseMode ? (
             <StatusBanner>Running with mock data. Add `.env.local` values to connect Supabase.</StatusBanner>
