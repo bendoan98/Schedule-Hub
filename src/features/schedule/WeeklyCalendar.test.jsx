@@ -74,8 +74,9 @@ describe('WeeklyCalendar', () => {
       />
     );
 
-    fireEvent.click(screen.getAllByRole('button', { name: /add shift for alex/i })[0]);
-    expect(onAddShift).toHaveBeenCalledWith('e1', 0);
+    expect(screen.queryByRole('button', { name: /add shift for alex on monday, mar 9/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /add shift for alex on tuesday, mar 10/i }));
+    expect(onAddShift).toHaveBeenCalledWith('e1', 1);
 
     fireEvent.click(screen.getByRole('button', { name: /previous week/i }));
     fireEvent.click(screen.getByRole('button', { name: /next week/i }));

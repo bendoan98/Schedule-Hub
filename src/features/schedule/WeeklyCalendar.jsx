@@ -114,7 +114,7 @@ export default function WeeklyCalendar({
 
               return (
                 <div key={`${employee.id}-${header.day}`} className="shift-cell" role="cell">
-                  {role === 'manager' ? (
+                  {role === 'manager' && cellShifts.length === 0 ? (
                     <button
                       type="button"
                       className="add-shift-btn"
