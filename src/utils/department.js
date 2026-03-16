@@ -1,5 +1,3 @@
-export const DEFAULT_DEPARTMENT = 'UNASSIGNED';
-
 export function normalizeDepartmentName(value) {
   const normalized = `${value ?? ''}`.trim();
 
@@ -11,7 +9,7 @@ export function normalizeDepartmentName(value) {
 }
 
 export function toStoredDepartment(value) {
-  return normalizeDepartmentName(value) || DEFAULT_DEPARTMENT;
+  return normalizeDepartmentName(value) || null;
 }
 
 export function buildDepartmentList(values = []) {
@@ -19,7 +17,11 @@ export function buildDepartmentList(values = []) {
   const departments = [];
 
   values.forEach((value) => {
-    const normalized = toStoredDepartment(value);
+    const normalized = normalizeDepartmentName(value);
+
+    if (!normalized) {
+      return;
+    }
 
     if (deduped.has(normalized)) {
       return;
@@ -29,19 +31,5 @@ export function buildDepartmentList(values = []) {
     departments.push(normalized);
   });
 
-  if (!deduped.has(DEFAULT_DEPARTMENT)) {
-    departments.unshift(DEFAULT_DEPARTMENT);
-  }
-
-  return departments.sort((left, right) => {
-    if (left === DEFAULT_DEPARTMENT) {
-      return -1;
-    }
-
-    if (right === DEFAULT_DEPARTMENT) {
-      return 1;
-    }
-
-    return left.localeCompare(right);
-  });
+  return departments.sort((left, right) => left.localeCompare(right));
 }

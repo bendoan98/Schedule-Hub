@@ -99,7 +99,7 @@ export function parseScheduleCsv(csvText, weekStart, existingEmployees = []) {
         name: employeeName,
         email: `${employeeName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
         role: normalizeRole(row.role),
-        department: 'UNASSIGNED',
+        department: null,
         colorIndex: employeeByName.size % 8
       };
 

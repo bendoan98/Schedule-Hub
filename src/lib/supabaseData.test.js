@@ -190,7 +190,7 @@ describe('supabaseData', () => {
       departmentId: 'd1',
       colorIndex: 3
     });
-    expect(snapshot.departments).toEqual(['UNASSIGNED', 'OPS']);
+    expect(snapshot.departments).toEqual(['OPS']);
     expect(snapshot.shifts[0].employeeId).toBe('e1');
     expect(snapshot.swapRequests[0].offeredShiftId).toBe('s2');
     expect(snapshot.swapRequests[0].targetEmployeeId).toBe('e2');

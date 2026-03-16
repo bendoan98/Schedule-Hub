@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getShiftDate } from '../../utils/date';
+import useDismissibleLayer from '../../hooks/useDismissibleLayer';
 
 function toIcsDate(date, time) {
   const [hours, minutes] = time.split(':').map(Number);
@@ -80,6 +81,7 @@ export default function ExportButtons({
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
   const employeesById = new Map(employees.map((employee) => [employee.id, employee]));
+  const closeMenu = () => setIsOpen(false);
 
   const personalShifts = shifts.filter(
     (shift) => shift.weekStart === weekStart && shift.employeeId === currentEmployeeId
@@ -92,48 +94,26 @@ export default function ExportButtons({
   function handlePersonalExport() {
     const ics = buildIcs(personalShifts, employeesById, weekStart, 'personal');
     downloadTextFile('personal-schedule.ics', ics);
-    setIsOpen(false);
+    closeMenu();
   }
 
   function handleTeamExport() {
     const ics = buildIcs(teamShifts, employeesById, weekStart, 'team');
     downloadTextFile('team-schedule.ics', ics);
-    setIsOpen(false);
+    closeMenu();
   }
 
   function handleGoogleOpen() {
     const employeeName = employeesById.get(currentEmployeeId)?.name ?? 'My';
     openGoogleCalendar(firstPersonalShift, employeeName, weekStart);
-    setIsOpen(false);
+    closeMenu();
   }
-
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
-
-    function handleOutsidePointerDown(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-
-    function handleEscape(event) {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleOutsidePointerDown);
-    document.addEventListener('touchstart', handleOutsidePointerDown);
-    document.addEventListener('keydown', handleEscape);
-
-    return () => {
-      document.removeEventListener('mousedown', handleOutsidePointerDown);
-      document.removeEventListener('touchstart', handleOutsidePointerDown);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen]);
+  useDismissibleLayer({
+    isOpen,
+    containerRef: menuRef,
+    onDismiss: closeMenu,
+    closeOnEscape: true
+  });
 
   if (compact) {
     return (

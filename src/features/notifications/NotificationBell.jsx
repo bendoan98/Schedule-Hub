@@ -1,30 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import useDismissibleLayer from '../../hooks/useDismissibleLayer';
 
 export default function NotificationBell({ notifications, onMarkAllRead }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
+  const closePopover = () => setIsOpen(false);
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
     [notifications]
   );
 
-  useEffect(() => {
-    function handlePointerDown(event) {
-      if (!isOpen) {
-        return;
-      }
-
-      if (!containerRef.current?.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown);
-
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
-    };
-  }, [isOpen]);
+  useDismissibleLayer({
+    isOpen,
+    containerRef,
+    onDismiss: closePopover
+  });
 
   return (
     <div className="notification-bell" ref={containerRef}>

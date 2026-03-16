@@ -1,4 +1,5 @@
 import { formatShiftDateLabel } from '../../utils/date';
+import PanelSection from '../../components/ui/PanelSection';
 
 function formatShiftLabel(shift, employeeName) {
   if (!shift) {
@@ -42,8 +43,7 @@ export default function SwapRequestsPanel({
         );
 
   return (
-    <section className="panel">
-      <h3>{title}</h3>
+    <PanelSection className="panel" title={title}>
 
       {visibleRequests.length === 0 ? <p>No schedule requests yet.</p> : null}
 
@@ -124,6 +124,6 @@ export default function SwapRequestsPanel({
           );
         })}
       </div>
-    </section>
+    </PanelSection>
   );
 }

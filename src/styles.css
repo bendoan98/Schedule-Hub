@@ -436,7 +436,13 @@ button.danger:not(:disabled):hover {
   padding: 0.45rem;
   display: grid;
   gap: 0.15rem;
+  width: 100%;
+  text-align: left;
   transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+button.shift-chip {
+  appearance: none;
 }
 
 .shift-chip.interactive {

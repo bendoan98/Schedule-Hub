@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { DEFAULT_DEPARTMENT, buildDepartmentList, normalizeDepartmentName } from '../../utils/department';
+import { buildDepartmentList, normalizeDepartmentName } from '../../utils/department';
+import PanelSection from '../../components/ui/PanelSection';
 
 export default function TeamRosterPanel({
   employees,
@@ -16,10 +17,7 @@ export default function TeamRosterPanel({
     );
   }, [employees, managerEmployeeId]);
 
-  const departmentOptions = useMemo(
-    () => buildDepartmentList(departments ?? []).filter((department) => department !== DEFAULT_DEPARTMENT),
-    [departments]
-  );
+  const departmentOptions = useMemo(() => buildDepartmentList(departments ?? []), [departments]);
 
   function getDraftDepartment(employee) {
     return drafts[employee.id] ?? employee.department ?? '';
@@ -45,9 +43,12 @@ export default function TeamRosterPanel({
   }
 
   return (
-    <section className="panel">
-      <h3>Team Roster</h3>
-      <p className="muted">Managers can update team departments, including their own, using the available department list.</p>
+    <PanelSection
+      className="panel"
+      title="Team Roster"
+      description="Managers can update team departments, including their own, using the available department list."
+      descriptionClassName="muted"
+    >
 
       {editableRows.length === 0 ? <p className="muted">No team members found.</p> : null}
 
@@ -96,6 +97,6 @@ export default function TeamRosterPanel({
           );
         })}
       </div>
-    </section>
+    </PanelSection>
   );
 }

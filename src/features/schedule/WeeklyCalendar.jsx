@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useMemo } from 'react';
 import { getWeekHeaders } from '../../utils/date';
 
 const DAY_INDEX_LABEL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -19,17 +19,37 @@ export default function WeeklyCalendar({
 }) {
   const headers = getWeekHeaders(weekStart);
 
-  const pendingShiftIds = new Set(
-    swapRequests
-      .filter((request) => request.status?.startsWith('pending'))
-      .flatMap((request) => [request.shiftId, request.offeredShiftId].filter(Boolean))
+  const pendingShiftIds = useMemo(
+    () =>
+      new Set(
+        swapRequests
+          .filter((request) => request.status?.startsWith('pending'))
+          .flatMap((request) => [request.shiftId, request.offeredShiftId].filter(Boolean))
+      ),
+    [swapRequests]
   );
 
-  function getShiftsForCell(employeeId, day) {
-    return shifts
-      .filter((shift) => shift.weekStart === weekStart && shift.employeeId === employeeId && shift.day === day)
-      .sort((a, b) => a.startTime.localeCompare(b.startTime));
-  }
+  const shiftsByCell = useMemo(() => {
+    const indexed = new Map();
+
+    shifts
+      .filter((shift) => shift.weekStart === weekStart)
+      .forEach((shift) => {
+        const key = `${shift.employeeId}-${shift.day}`;
+        const nextCellShifts = indexed.get(key) ?? [];
+        nextCellShifts.push(shift);
+        indexed.set(key, nextCellShifts);
+      });
+
+    indexed.forEach((cellShifts, key) => {
+      indexed.set(
+        key,
+        [...cellShifts].sort((left, right) => left.startTime.localeCompare(right.startTime))
+      );
+    });
+
+    return indexed;
+  }, [shifts, weekStart]);
 
   return (
     <section className="panel calendar-panel">
@@ -90,7 +110,7 @@ export default function WeeklyCalendar({
             </div>
 
             {headers.map((header) => {
-              const cellShifts = getShiftsForCell(employee.id, header.day);
+              const cellShifts = shiftsByCell.get(`${employee.id}-${header.day}`) ?? [];
 
               return (
                 <div key={`${employee.id}-${header.day}`} className="shift-cell" role="cell">
@@ -106,30 +126,29 @@ export default function WeeklyCalendar({
                   ) : null}
 
                   {cellShifts.map((shift) => {
-                    const canOpenShift =
-                      role === 'manager' || role === 'employee';
+                    const canOpenShift = role === 'manager' || role === 'employee';
                     const pending = pendingShiftIds.has(shift.id);
+                    const className = `shift-chip color-${employee.colorIndex % 8} ${
+                      canOpenShift ? 'interactive' : ''
+                    } ${pending ? 'pending' : ''}`;
+
+                    if (canOpenShift) {
+                      return (
+                        <button
+                          key={shift.id}
+                          type="button"
+                          className={className}
+                          onClick={() => onShiftClick(shift)}
+                          aria-label={`Open shift details for ${employee.name} on ${header.longLabel}, ${shift.startTime} to ${shift.endTime}`}
+                        >
+                          <p>{shift.startTime} - {shift.endTime}</p>
+                          {pending ? <small>PENDING</small> : null}
+                        </button>
+                      );
+                    }
 
                     return (
-                      <article
-                        key={shift.id}
-                        className={`shift-chip color-${employee.colorIndex % 8} ${
-                          canOpenShift ? 'interactive' : ''
-                        } ${pending ? 'pending' : ''}`}
-                        onClick={canOpenShift ? () => onShiftClick(shift) : undefined}
-                        onKeyDown={
-                          canOpenShift
-                            ? (event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault();
-                                  onShiftClick(shift);
-                                }
-                              }
-                            : undefined
-                        }
-                        role={canOpenShift ? 'button' : undefined}
-                        tabIndex={canOpenShift ? 0 : undefined}
-                      >
+                      <article key={shift.id} className={className}>
                         <p>{shift.startTime} - {shift.endTime}</p>
                         {pending ? <small>PENDING</small> : null}
                       </article>

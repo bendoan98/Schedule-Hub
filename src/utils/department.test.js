@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_DEPARTMENT,
   buildDepartmentList,
   normalizeDepartmentName,
   toStoredDepartment
@@ -10,14 +9,14 @@ describe('department utils', () => {
   it('normalizes and stores department names', () => {
     expect(normalizeDepartmentName('  kitchen ')).toBe('KITCHEN');
     expect(normalizeDepartmentName('')).toBe('');
-    expect(toStoredDepartment('')).toBe(DEFAULT_DEPARTMENT);
+    expect(toStoredDepartment('')).toBeNull();
     expect(toStoredDepartment('sales')).toBe('SALES');
   });
 
-  it('builds a deduped list and keeps default first', () => {
+  it('builds a deduped list without fallback placeholders', () => {
     const result = buildDepartmentList(['sales', 'SALES', 'ops', null]);
 
-    expect(result[0]).toBe(DEFAULT_DEPARTMENT);
+    expect(result).not.toContain('UNASSIGNED');
     expect(result).toContain('SALES');
     expect(result).toContain('OPS');
     expect(result.filter((name) => name === 'SALES')).toHaveLength(1);

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
-  DEFAULT_DEPARTMENT,
   buildDepartmentList,
   normalizeDepartmentName
 } from '../../utils/department';
+import PanelSection from '../../components/ui/PanelSection';
 
 export default function DepartmentManagerPanel({
   departments,
@@ -16,16 +16,16 @@ export default function DepartmentManagerPanel({
   const [newDepartment, setNewDepartment] = useState('');
   const [renameDrafts, setRenameDrafts] = useState({});
 
-  const managedDepartments = useMemo(
-    () => buildDepartmentList(departments).filter((department) => department !== DEFAULT_DEPARTMENT),
-    [departments]
-  );
+  const managedDepartments = useMemo(() => buildDepartmentList(departments), [departments]);
 
   const memberCountByDepartment = useMemo(() => {
     const counts = new Map();
 
     employees.forEach((employee) => {
-      const key = normalizeDepartmentName(employee.department) || DEFAULT_DEPARTMENT;
+      const key = normalizeDepartmentName(employee.department);
+      if (!key) {
+        return;
+      }
       counts.set(key, (counts.get(key) ?? 0) + 1);
     });
 
@@ -37,7 +37,7 @@ export default function DepartmentManagerPanel({
 
     const normalized = normalizeDepartmentName(newDepartment);
 
-    if (!normalized || normalized === DEFAULT_DEPARTMENT || managedDepartments.includes(normalized)) {
+    if (!normalized || managedDepartments.includes(normalized)) {
       return;
     }
 
@@ -65,10 +65,6 @@ export default function DepartmentManagerPanel({
   }
 
   async function handleDeleteDepartment(department) {
-    if (department === DEFAULT_DEPARTMENT) {
-      return;
-    }
-
     const shouldDelete = window.confirm(
       `Delete ${department}? Team members in this department will have no department.`
     );
@@ -81,9 +77,12 @@ export default function DepartmentManagerPanel({
   }
 
   return (
-    <section className="panel department-panel">
-      <h3>Department Manager</h3>
-      <p className="muted">Add, rename, or delete departments for your team.</p>
+    <PanelSection
+      className="panel department-panel"
+      title="Department Manager"
+      description="Add, rename, or delete departments for your team."
+      descriptionClassName="muted"
+    >
 
       <form className="department-add-form" onSubmit={handleAddDepartment}>
         <label>
@@ -109,7 +108,6 @@ export default function DepartmentManagerPanel({
           const hasMembers = memberCountByDepartment.get(department) ?? 0;
           const canRename =
             Boolean(normalizedDraft) &&
-            normalizedDraft !== DEFAULT_DEPARTMENT &&
             normalizedDraft !== department &&
             !managedDepartments.includes(normalizedDraft);
 
@@ -150,6 +148,6 @@ export default function DepartmentManagerPanel({
           );
         })}
       </div>
-    </section>
+    </PanelSection>
   );
 }

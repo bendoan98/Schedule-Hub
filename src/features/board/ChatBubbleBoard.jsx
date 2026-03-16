@@ -1,27 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import MessageBoard from './MessageBoard';
+import useDismissibleLayer from '../../hooks/useDismissibleLayer';
 
 export default function ChatBubbleBoard({ posts, currentUser, role, onAddPost }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
+  const closeChat = () => setIsOpen(false);
 
-  useEffect(() => {
-    function handlePointerDown(event) {
-      if (!isOpen) {
-        return;
-      }
-
-      if (!containerRef.current?.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown);
-
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
-    };
-  }, [isOpen]);
+  useDismissibleLayer({
+    isOpen,
+    containerRef,
+    onDismiss: closeChat,
+    closeOnEscape: true
+  });
 
   return (
     <div className="chat-widget" ref={containerRef}>
@@ -29,7 +20,7 @@ export default function ChatBubbleBoard({ posts, currentUser, role, onAddPost })
         <section className="chat-window" role="dialog" aria-label="Team chat">
           <header className="chat-window-header">
             <h4>Team Chat</h4>
-            <button type="button" onClick={() => setIsOpen(false)} aria-label="Close chat">
+            <button type="button" onClick={closeChat} aria-label="Close chat">
               ×
             </button>
           </header>

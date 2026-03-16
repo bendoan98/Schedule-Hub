@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addWeeks, subWeeks } from 'date-fns';
-import DashboardStats from './features/dashboard/DashboardStats';
-import WeeklyCalendar from './features/schedule/WeeklyCalendar';
-import ShiftEditorModal from './features/shifts/ShiftEditorModal';
 import NotificationBell from './features/notifications/NotificationBell';
-import ChatBubbleBoard from './features/board/ChatBubbleBoard';
-import ExportButtons from './features/export/ExportButtons';
+import SchedulePage from './pages/SchedulePage';
 import ManagerPage from './features/manager/ManagerPage';
-import SwapRequestsPanel from './features/swaps/SwapRequestsPanel';
-import SwapTradeRequestModal from './features/swaps/SwapTradeRequestModal';
-import SwapOfferShiftModal from './features/swaps/SwapOfferShiftModal';
-import OwnShiftActionModal from './features/swaps/OwnShiftActionModal';
-import TimeOffRequestModal from './features/swaps/TimeOffRequestModal';
+import SegmentedToggle from './components/ui/SegmentedToggle';
+import StatusBanner from './components/ui/StatusBanner';
+import AuthPanel from './features/auth/AuthPanel';
+import TeamSetupPanel from './features/auth/TeamSetupPanel';
 import {
   mockBoardPosts,
   mockEmployees,
@@ -20,38 +15,24 @@ import {
   mockSwapRequests
 } from './data/mockData';
 import { hasSupabaseCredentials, supabase } from './lib/supabaseClient';
-import {
-  createDepartment,
-  createSwapRequest,
-  createTeamForCurrentUser,
-  deleteDepartment,
-  ensureDepartment,
-  fetchAppData,
-  insertCsvShifts,
-  insertMessagePost,
-  insertNotifications,
-  joinTeamWithInviteCode,
-  markAllNotificationsRead,
-  renameDepartment,
-  replaceDepartmentForTeam,
-  removeShift,
-  removeSwapRequest,
-  setSwapRequestStatus,
-  updateEmployeeDepartment,
-  upsertShift
-} from './lib/supabaseData';
-import {
-  DEFAULT_DEPARTMENT,
-  buildDepartmentList,
-  normalizeDepartmentName,
-  toStoredDepartment
-} from './utils/department';
-import { formatShiftDateLabel, getMonday, toIsoDate } from './utils/date';
-import { newId } from './utils/id';
+import { createTeamForCurrentUser, fetchAppData, joinTeamWithInviteCode } from './lib/supabaseData';
+import { buildDepartmentList, normalizeDepartmentName } from './utils/department';
+import { getMonday, toIsoDate } from './utils/date';
+import useScheduleActions from './hooks/useScheduleActions';
 
 const ROLES = ['manager', 'employee'];
-const TEAM_MODES = ['create', 'join'];
-const PAGE_MODES = ['schedule', 'manager'];
+const ROUTE_SCHEDULE = '/schedule';
+const ROUTE_MANAGER = '/manager';
+const PAGE_ROUTES = [
+  { path: ROUTE_SCHEDULE, label: 'Schedule' },
+  { path: ROUTE_MANAGER, label: 'Manager Page' }
+];
+const ROLE_TOGGLE_OPTIONS = ROLES.map((option) => ({ value: option, label: option }));
+const PAGE_TOGGLE_OPTIONS = PAGE_ROUTES.map((route) => ({ value: route.path, label: route.label }));
+
+function normalizePathname(pathname) {
+  return pathname === ROUTE_MANAGER ? ROUTE_MANAGER : ROUTE_SCHEDULE;
+}
 
 export default function App() {
   const isSupabaseMode = Boolean(hasSupabaseCredentials && supabase);
@@ -67,11 +48,6 @@ export default function App() {
   const [weekStart, setWeekStart] = useState(toIsoDate(getMonday()));
   const [role, setRole] = useState(isSupabaseMode ? 'employee' : 'manager');
   const [currentEmployeeId, setCurrentEmployeeId] = useState(isSupabaseMode ? '' : 'emp-alex');
-  const [editingShift, setEditingShift] = useState(null);
-  const [swapTradeTargetShift, setSwapTradeTargetShift] = useState(null);
-  const [swapOfferShift, setSwapOfferShift] = useState(null);
-  const [ownShiftActionShift, setOwnShiftActionShift] = useState(null);
-  const [timeOffShift, setTimeOffShift] = useState(null);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(isSupabaseMode);
   const [dataLoading, setDataLoading] = useState(false);
@@ -85,9 +61,7 @@ export default function App() {
   const [teamSetupMode, setTeamSetupMode] = useState('create');
   const [teamNameInput, setTeamNameInput] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
-  const [updatingDepartmentEmployeeId, setUpdatingDepartmentEmployeeId] = useState('');
-  const [departmentActionLoading, setDepartmentActionLoading] = useState(false);
-  const [activePage, setActivePage] = useState('schedule');
+  const [currentPath, setCurrentPath] = useState(() => normalizePathname(window.location.pathname));
 
   const [authError, setAuthError] = useState('');
   const [appMessage, setAppMessage] = useState('');
@@ -136,49 +110,43 @@ export default function App() {
 
   const weekDate = useMemo(() => new Date(`${weekStart}T12:00:00`), [weekStart]);
 
-  const tradeableShifts = useMemo(() => {
-    if (role !== 'employee') {
-      return [];
+  const navigateTo = useCallback((nextPath, options = {}) => {
+    const { replace = false } = options;
+    const normalizedPath = normalizePathname(nextPath);
+
+    if (window.location.pathname !== normalizedPath) {
+      const navigationMethod = replace ? window.history.replaceState : window.history.pushState;
+      navigationMethod.call(window.history, null, '', normalizedPath);
     }
 
-    return shifts
-      .filter((shift) => shift.employeeId === currentEmployeeId && shift.weekStart === weekStart)
-      .sort((left, right) => {
-        if (left.day !== right.day) {
-          return left.day - right.day;
-        }
-
-        return left.startTime.localeCompare(right.startTime);
-      });
-  }, [currentEmployeeId, role, shifts, weekStart]);
-
-  const offerTargetEmployees = useMemo(() => {
-    if (role !== 'employee') {
-      return [];
-    }
-
-    const requesterDepartment = normalizeDepartmentName(currentUser?.department);
-
-    if (!requesterDepartment) {
-      return [];
-    }
-
-    return employees
-      .filter((employee) => {
-        if (employee.id === currentEmployeeId || employee.role !== 'employee') {
-          return false;
-        }
-
-        return normalizeDepartmentName(employee.department) === requesterDepartment;
-      })
-      .sort((left, right) => left.name.localeCompare(right.name));
-  }, [currentEmployeeId, currentUser?.department, employees, role]);
+    setCurrentPath(normalizedPath);
+  }, []);
 
   useEffect(() => {
-    if (role !== 'manager') {
-      setActivePage('schedule');
+    const normalizedPath = normalizePathname(window.location.pathname);
+
+    if (window.location.pathname !== normalizedPath) {
+      window.history.replaceState(null, '', normalizedPath);
     }
-  }, [role]);
+
+    setCurrentPath(normalizedPath);
+
+    function handlePopState() {
+      setCurrentPath(normalizePathname(window.location.pathname));
+    }
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (role !== 'manager' && currentPath === ROUTE_MANAGER) {
+      navigateTo(ROUTE_SCHEDULE, { replace: true });
+    }
+  }, [currentPath, navigateTo, role]);
 
   const loadSupabaseData = useCallback(async () => {
     if (!isSupabaseMode || !supabase || !session) {
@@ -320,109 +288,67 @@ export default function App() {
     return joinedTeam;
   }
 
-  function addLocalNotification(title, body) {
-    setNotifications((previous) => [
-      {
-        id: newId(),
-        title,
-        body,
-        read: false,
-        createdAt: new Date().toISOString()
-      },
-      ...previous
-    ]);
-  }
-
-  function toShiftSummary(shift) {
-    if (!shift) {
-      return 'Unknown shift (--:----:--)';
-    }
-
-    return `${formatShiftDateLabel(shift.weekStart, shift.day)} (${shift.startTime}-${shift.endTime})`;
-  }
-
-  function toMinutes(timeValue) {
-    const [hour, minute] = timeValue.split(':').map(Number);
-    return hour * 60 + minute;
-  }
-
-  function shiftsOverlap(left, right) {
-    if (!left || !right) {
-      return false;
-    }
-
-    if (left.weekStart !== right.weekStart || left.day !== right.day) {
-      return false;
-    }
-
-    const leftStart = toMinutes(left.startTime);
-    const leftEnd = toMinutes(left.endTime);
-    const rightStart = toMinutes(right.startTime);
-    const rightEnd = toMinutes(right.endTime);
-
-    return leftStart < rightEnd && rightStart < leftEnd;
-  }
-
-  function hasTradeConflict(requestedShift, offeredShift) {
-    if (!requestedShift || !offeredShift) {
-      return false;
-    }
-
-    return shifts.some((existingShift) => {
-      if (existingShift.id === requestedShift.id || existingShift.id === offeredShift.id) {
-        return false;
-      }
-
-      if (
-        existingShift.employeeId === offeredShift.employeeId &&
-        shiftsOverlap(existingShift, requestedShift)
-      ) {
-        return true;
-      }
-
-      if (
-        existingShift.employeeId === requestedShift.employeeId &&
-        shiftsOverlap(existingShift, offeredShift)
-      ) {
-        return true;
-      }
-
-      return false;
-    });
-  }
-
-  function hasOfferConflict(offeredShift, targetEmployeeId) {
-    if (!offeredShift || !targetEmployeeId) {
-      return false;
-    }
-
-    return shifts.some((existingShift) => {
-      if (existingShift.id === offeredShift.id) {
-        return false;
-      }
-
-      if (existingShift.employeeId !== targetEmployeeId) {
-        return false;
-      }
-
-      return shiftsOverlap(existingShift, offeredShift);
-    });
-  }
-
-  function buildNotificationTargets(recipientIds, title, body) {
-    if (!team?.id) {
-      return [];
-    }
-
-    return Array.from(new Set(recipientIds))
-      .filter((employeeId) => employeeId && employeeId !== currentEmployeeId)
-      .map((employeeId) => ({
-        teamId: team.id,
-        targetEmployeeId: employeeId,
-        title,
-        body
-      }));
-  }
+  const {
+    editingShift,
+    swapTradeTargetShift,
+    swapOfferShift,
+    ownShiftActionShift,
+    timeOffShift,
+    tradeableShifts,
+    offerTargetEmployees,
+    updatingDepartmentEmployeeId,
+    departmentActionLoading,
+    handleCsvImport,
+    handleAddShift,
+    handleShiftClick,
+    handleSaveShift,
+    handleDeleteShift,
+    handleOpenOwnShiftOffer,
+    handleOpenOwnShiftTimeOff,
+    handleSubmitSwapTrade,
+    handleSubmitSwapOffer,
+    handleSubmitTimeOffRequest,
+    handleSwapDecision,
+    handleCancelSwapRequest,
+    handleMarkAllRead,
+    handleAddBoardPost,
+    handleUpdateEmployeeDepartment,
+    handleAddDepartment,
+    handleRenameDepartment,
+    handleDeleteDepartment,
+    closeEditShift,
+    closeOwnShiftAction,
+    closeSwapTrade,
+    closeSwapOffer,
+    closeTimeOff
+  } = useScheduleActions({
+    env: {
+      isSupabaseMode,
+      session,
+      supabase
+    },
+    context: {
+      team,
+      employees,
+      departments,
+      shifts,
+      swapRequests,
+      weekStart,
+      role,
+      currentEmployeeId,
+      currentUser
+    },
+    setters: {
+      setEmployees,
+      setTeamDepartments,
+      setShifts,
+      setSwapRequests,
+      setNotifications,
+      setBoardPosts,
+      setAppMessage
+    },
+    loadSupabaseData
+  });
 
   function handleRoleChange(nextRole) {
     if (isSupabaseMode) {
@@ -430,7 +356,7 @@ export default function App() {
     }
 
     setRole(nextRole);
-    setActivePage('schedule');
+    navigateTo(ROUTE_SCHEDULE, { replace: true });
 
     const matchingEmployee = employees.find((employee) => employee.role === nextRole);
 
@@ -439,1033 +365,10 @@ export default function App() {
     }
   }
 
-  async function handleCsvImport(result, importWeekStart = weekStart) {
-    if (!isSupabaseMode || !session || !supabase) {
-      setEmployees((previous) => [...previous, ...result.importedEmployees]);
-      setShifts((previous) => [...previous, ...result.importedShifts]);
-      addLocalNotification('Schedule Imported', `Added ${result.importedShifts.length} shifts from CSV.`);
-      return `Imported ${result.rowCount} rows and ${result.importedShifts.length} shifts.`;
-    }
-
-    try {
-      const knownEmployeeIds = new Set(employees.map((employee) => employee.id));
-      const validShifts = result.importedShifts.filter((shift) => knownEmployeeIds.has(shift.employeeId));
-      const skippedShiftCount = result.importedShifts.length - validShifts.length;
-
-      if (validShifts.length === 0) {
-        return 'No shifts imported. CSV employee_name values must match employees in your team.';
-      }
-
-      const insertedCount = await insertCsvShifts(supabase, validShifts, importWeekStart);
-
-      if (team?.id) {
-        const employeeNotifications = employees
-          .filter((employee) => employee.role === 'employee' && employee.id !== currentEmployeeId)
-          .map((employee) => ({
-            teamId: team.id,
-            targetEmployeeId: employee.id,
-            title: 'New Schedule Available',
-            body: `A new schedule was published for the week of ${importWeekStart}.`
-          }));
-
-        await insertNotifications(supabase, employeeNotifications);
-      }
-
-      await loadSupabaseData();
-
-      const summary =
-        skippedShiftCount > 0
-          ? `Imported ${insertedCount} shifts. Skipped ${skippedShiftCount} shifts for unknown employees.`
-          : `Imported ${insertedCount} shifts.`;
-
-      setAppMessage(summary);
-      return summary;
-    } catch (error) {
-      setAppMessage(error.message);
-      return `Import failed: ${error.message}`;
-    }
-  }
-
-  function handleAddShift(employeeId, day) {
-    setEditingShift({
-      id: newId(),
-      employeeId,
-      day,
-      startTime: '09:00',
-      endTime: '17:00',
-      weekStart,
-      isNew: true
-    });
-  }
-
-  function handleShiftClick(shift) {
-    if (role === 'manager') {
-      setEditingShift({ ...shift, isNew: false });
-      return;
-    }
-
-    if (shift.employeeId === currentEmployeeId) {
-      setSwapTradeTargetShift(null);
-      setSwapOfferShift(null);
-      setTimeOffShift(null);
-      setOwnShiftActionShift(shift);
-      return;
-    }
-
-    const requesterDepartment = normalizeDepartmentName(currentUser?.department);
-
-    if (!requesterDepartment) {
-      setAppMessage('Schedule requests are only available with teammates in your department.');
-      return;
-    }
-
-    const targetEmployee = employees.find((employee) => employee.id === shift.employeeId);
-    const targetDepartment = normalizeDepartmentName(targetEmployee?.department);
-
-    if (!targetEmployee || requesterDepartment !== targetDepartment) {
-      setAppMessage('Schedule requests are only available with teammates in your department.');
-      return;
-    }
-
-    setOwnShiftActionShift(null);
-    setTimeOffShift(null);
-    setSwapOfferShift(null);
-    setSwapTradeTargetShift(shift);
-  }
-
-  async function handleSaveShift(updatedShift) {
-    if (isSupabaseMode && session && supabase) {
-      try {
-        await upsertShift(supabase, { ...updatedShift, weekStart }, weekStart);
-        setEditingShift(null);
-        await loadSupabaseData();
-        setAppMessage('Shift saved.');
-      } catch (error) {
-        setAppMessage(error.message);
-      }
-
-      return;
-    }
-
-    const shiftToSave = {
-      id: updatedShift.id,
-      employeeId: updatedShift.employeeId,
-      day: Number(updatedShift.day),
-      startTime: updatedShift.startTime,
-      endTime: updatedShift.endTime,
-      weekStart
-    };
-
-    setShifts((previous) => {
-      const exists = previous.some((shift) => shift.id === shiftToSave.id);
-
-      if (exists) {
-        return previous.map((shift) => (shift.id === shiftToSave.id ? shiftToSave : shift));
-      }
-
-      return [...previous, shiftToSave];
-    });
-
-    setEditingShift(null);
-    addLocalNotification('Shift Saved', 'A shift was added or updated.');
-  }
-
-  async function handleDeleteShift(shiftId) {
-    if (isSupabaseMode && session && supabase) {
-      try {
-        await removeShift(supabase, shiftId);
-        setEditingShift(null);
-        await loadSupabaseData();
-        setAppMessage('Shift deleted.');
-      } catch (error) {
-        setAppMessage(error.message);
-      }
-
-      return;
-    }
-
-    setShifts((previous) => previous.filter((shift) => shift.id !== shiftId));
-    setEditingShift(null);
-    addLocalNotification('Shift Deleted', 'A shift was removed from the schedule.');
-  }
-
-  function handleOpenOwnShiftOffer() {
-    if (!ownShiftActionShift) {
-      return;
-    }
-
-    setSwapOfferShift(ownShiftActionShift);
-    setOwnShiftActionShift(null);
-  }
-
-  function handleOpenOwnShiftTimeOff() {
-    if (!ownShiftActionShift) {
-      return;
-    }
-
-    setTimeOffShift(ownShiftActionShift);
-    setOwnShiftActionShift(null);
-  }
-
-  async function handleSubmitSwapTrade({ offeredShiftId, reason }) {
-    const targetShift = swapTradeTargetShift;
-
-    if (!targetShift) {
-      return;
-    }
-
-    const offeredShift = shifts.find((shift) => shift.id === offeredShiftId);
-
-    if (!offeredShift || offeredShift.employeeId !== currentEmployeeId) {
-      setAppMessage('Select one of your shifts to offer for this trade.');
-      return;
-    }
-
-    const targetEmployee = employees.find((employee) => employee.id === targetShift.employeeId);
-    const requesterDepartment = normalizeDepartmentName(currentUser?.department);
-    const targetDepartment = normalizeDepartmentName(targetEmployee?.department);
-
-    if (!requesterDepartment || requesterDepartment !== targetDepartment) {
-      setAppMessage('Schedule requests are only available with teammates in your department.');
-      return;
-    }
-
-    if (hasTradeConflict(targetShift, offeredShift)) {
-      setSwapTradeTargetShift(null);
-      setAppMessage('Schedule request denied automatically due to a shift conflict.');
-      return;
-    }
-
-    const trimmedReason = reason.trim();
-
-    if (isSupabaseMode && session && supabase) {
-      try {
-        if (!currentEmployeeId) {
-          throw new Error('No employee profile selected for this user.');
-        }
-
-        await createSwapRequest(supabase, {
-          shiftId: targetShift.id,
-          offeredShiftId: offeredShift.id,
-          requestedBy: currentEmployeeId,
-          targetEmployeeId: targetShift.employeeId,
-          reason: trimmedReason
-        });
-
-        await insertNotifications(
-          supabase,
-          buildNotificationTargets(
-            [targetShift.employeeId],
-            'Schedule Request Received',
-            `${currentUser?.name ?? 'A teammate'} requested to trade ${toShiftSummary(
-              offeredShift
-            )} for your ${toShiftSummary(targetShift)}${trimmedReason ? `: ${trimmedReason}` : '.'}`
-          )
-        );
-
-        await loadSupabaseData();
-        setAppMessage('Schedule request sent to teammate.');
-      } catch (error) {
-        setAppMessage(error.message);
-      } finally {
-        setSwapTradeTargetShift(null);
-      }
-
-      return;
-    }
-
-    setSwapRequests((previous) => [
-      {
-        id: newId(),
-        shiftId: targetShift.id,
-        offeredShiftId: offeredShift.id,
-        requestedBy: currentEmployeeId,
-        targetEmployeeId: targetShift.employeeId,
-        reason: trimmedReason,
-        status: 'pending_target',
-        createdAt: new Date().toISOString()
-      },
-      ...previous
-    ]);
-
-    setSwapTradeTargetShift(null);
-    addLocalNotification(
-      'Schedule Request Sent',
-      `${currentUser?.name ?? 'Employee'} requested to trade with ${targetEmployee?.name ?? 'teammate'}.`
-    );
-  }
-
-  async function handleSubmitSwapOffer({ targetEmployeeId, reason }) {
-    if (!swapOfferShift) {
-      return;
-    }
-
-    const offeredShift = swapOfferShift;
-    const targetEmployee = employees.find((employee) => employee.id === targetEmployeeId);
-    const requesterDepartment = normalizeDepartmentName(currentUser?.department);
-    const targetDepartment = normalizeDepartmentName(targetEmployee?.department);
-
-    if (!targetEmployee || targetEmployee.role !== 'employee' || targetEmployeeId === currentEmployeeId) {
-      setAppMessage('Select a teammate to offer this shift.');
-      return;
-    }
-
-    if (!requesterDepartment || requesterDepartment !== targetDepartment) {
-      setAppMessage('Schedule requests are only available with teammates in your department.');
-      return;
-    }
-
-    if (hasOfferConflict(offeredShift, targetEmployeeId)) {
-      setSwapOfferShift(null);
-      setAppMessage('Schedule request denied automatically due to a shift conflict.');
-      return;
-    }
-
-    const trimmedReason = reason.trim();
-
-    if (isSupabaseMode && session && supabase) {
-      try {
-        if (!currentEmployeeId) {
-          throw new Error('No employee profile selected for this user.');
-        }
-
-        await createSwapRequest(supabase, {
-          shiftId: offeredShift.id,
-          offeredShiftId: null,
-          requestedBy: currentEmployeeId,
-          targetEmployeeId,
-          reason: trimmedReason
-        });
-
-        await insertNotifications(
-          supabase,
-          buildNotificationTargets(
-            [targetEmployeeId],
-            'Schedule Request Received',
-            `${currentUser?.name ?? 'A teammate'} offered you ${toShiftSummary(offeredShift)}${
-              trimmedReason ? `: ${trimmedReason}` : '.'
-            }`
-          )
-        );
-
-        await loadSupabaseData();
-        setAppMessage('Schedule request sent to teammate.');
-      } catch (error) {
-        setAppMessage(error.message);
-      } finally {
-        setSwapOfferShift(null);
-      }
-
-      return;
-    }
-
-    setSwapRequests((previous) => [
-      {
-        id: newId(),
-        shiftId: offeredShift.id,
-        offeredShiftId: null,
-        requestedBy: currentEmployeeId,
-        targetEmployeeId,
-        reason: trimmedReason,
-        status: 'pending_target',
-        createdAt: new Date().toISOString()
-      },
-      ...previous
-    ]);
-
-    setSwapOfferShift(null);
-    addLocalNotification(
-      'Schedule Request Sent',
-      `${currentUser?.name ?? 'Employee'} offered a shift to ${targetEmployee?.name ?? 'teammate'}.`
-    );
-  }
-
-  async function handleSubmitTimeOffRequest({ reason }) {
-    if (!timeOffShift) {
-      return;
-    }
-
-    const selectedShift = timeOffShift;
-    const managerRecipientIds = Array.from(
-      new Set(
-        [
-          ...employees
-            .filter((employee) => employee.role === 'manager')
-            .map((employee) => employee.id),
-          team?.createdBy ?? null
-        ].filter((employeeId) => employeeId && employeeId !== currentEmployeeId)
-      )
-    );
-
-    if (managerRecipientIds.length === 0) {
-      setAppMessage('No manager is available to review this time-off request.');
-      return;
-    }
-
-    const trimmedReason = reason.trim();
-    const primaryManagerId = managerRecipientIds[0];
-
-    if (isSupabaseMode && session && supabase) {
-      try {
-        if (!currentEmployeeId) {
-          throw new Error('No employee profile selected for this user.');
-        }
-
-        await createSwapRequest(supabase, {
-          shiftId: selectedShift.id,
-          offeredShiftId: null,
-          requestedBy: currentEmployeeId,
-          targetEmployeeId: primaryManagerId,
-          reason: trimmedReason,
-          status: 'pending_manager'
-        });
-
-        await insertNotifications(
-          supabase,
-          buildNotificationTargets(
-            managerRecipientIds,
-            'Time Off Request Received',
-            `${currentUser?.name ?? 'A teammate'} requested time off for ${toShiftSummary(selectedShift)}${
-              trimmedReason ? `: ${trimmedReason}` : '.'
-            }`
-          )
-        );
-
-        await loadSupabaseData();
-        setAppMessage('Time-off request sent to manager.');
-      } catch (error) {
-        setAppMessage(error.message);
-      } finally {
-        setTimeOffShift(null);
-      }
-
-      return;
-    }
-
-    setSwapRequests((previous) => [
-      {
-        id: newId(),
-        shiftId: selectedShift.id,
-        offeredShiftId: null,
-        requestedBy: currentEmployeeId,
-        targetEmployeeId: primaryManagerId,
-        reason: trimmedReason,
-        status: 'pending_manager',
-        createdAt: new Date().toISOString()
-      },
-      ...previous
-    ]);
-
-    setTimeOffShift(null);
-    addLocalNotification(
-      'Time Off Request Sent',
-      `${currentUser?.name ?? 'Employee'} requested time off for ${toShiftSummary(selectedShift)}.`
-    );
-  }
-
-  async function handleSwapDecision(requestId, status) {
-    const request = swapRequests.find((item) => item.id === requestId);
-
-    if (!request) {
-      return;
-    }
-
-    const requestedShift = shifts.find((shift) => shift.id === request.shiftId);
-    const offeredShift = request.offeredShiftId
-      ? shifts.find((shift) => shift.id === request.offeredShiftId)
-      : null;
-    const targetEmployee = request.targetEmployeeId
-      ? employees.find((employee) => employee.id === request.targetEmployeeId) ?? null
-      : null;
-    const isTradeRequest = Boolean(request.offeredShiftId);
-    const isTimeOffRequest = !isTradeRequest && targetEmployee?.role === 'manager';
-    const autoDeniedByConflict =
-      (status === 'pending_manager' || status === 'approved') &&
-      (isTradeRequest
-        ? hasTradeConflict(requestedShift, offeredShift)
-        : isTimeOffRequest
-          ? false
-          : hasOfferConflict(requestedShift, request.targetEmployeeId));
-    const resolvedStatus = autoDeniedByConflict ? 'denied' : status;
-
-    if (isSupabaseMode && session && supabase) {
-      try {
-        if (resolvedStatus === 'approved') {
-          if (isTradeRequest) {
-            if (!requestedShift || !offeredShift) {
-              throw new Error('Requested trade shifts are no longer available.');
-            }
-
-            await upsertShift(
-              supabase,
-              {
-                ...requestedShift,
-                employeeId: offeredShift.employeeId,
-                isNew: false
-              },
-              requestedShift.weekStart
-            );
-            await upsertShift(
-              supabase,
-              {
-                ...offeredShift,
-                employeeId: requestedShift.employeeId,
-                isNew: false
-              },
-              offeredShift.weekStart
-            );
-          } else if (isTimeOffRequest) {
-            if (!requestedShift) {
-              throw new Error('Requested shift is no longer available.');
-            }
-
-            await removeShift(supabase, requestedShift.id);
-          } else {
-            if (!requestedShift || !request.targetEmployeeId) {
-              throw new Error('Requested shift is no longer available.');
-            }
-
-            await upsertShift(
-              supabase,
-              {
-                ...requestedShift,
-                employeeId: request.targetEmployeeId,
-                isNew: false
-              },
-              requestedShift.weekStart
-            );
-          }
-        }
-
-        await setSwapRequestStatus(supabase, requestId, resolvedStatus);
-
-        if (team?.id) {
-          let notificationsToInsert = [];
-
-          if (autoDeniedByConflict) {
-            notificationsToInsert = buildNotificationTargets(
-              [request.requestedBy, request.targetEmployeeId],
-              'Schedule Request Denied',
-              isTradeRequest
-                ? `Trade request for ${toShiftSummary(offeredShift)} and ${toShiftSummary(
-                    requestedShift
-                  )} was denied automatically due to a schedule conflict.`
-                : `Schedule request for ${toShiftSummary(
-                    requestedShift
-                  )} was denied automatically due to a schedule conflict.`
-            );
-          } else if (resolvedStatus === 'pending_manager' && !isTimeOffRequest) {
-            const managerIds = employees
-              .filter((employee) => employee.role === 'manager')
-              .map((employee) => employee.id);
-
-            notificationsToInsert = buildNotificationTargets(
-              managerIds,
-              'Schedule Request Awaiting Approval',
-              isTradeRequest
-                ? `${currentUser?.name ?? 'A teammate'} accepted a trade request between ${toShiftSummary(
-                    offeredShift
-                  )} and ${toShiftSummary(requestedShift)}. Final manager approval is required.`
-                : `${currentUser?.name ?? 'A teammate'} accepted a schedule request for ${toShiftSummary(
-                    requestedShift
-                  )}. Final manager approval is required.`
-            );
-          } else if (
-            resolvedStatus === 'denied' &&
-            currentEmployeeId === request.targetEmployeeId &&
-            request.status === 'pending_target'
-          ) {
-            notificationsToInsert = buildNotificationTargets(
-              [request.requestedBy],
-              'Schedule Request Denied',
-              isTradeRequest
-                ? `Your teammate denied the request to trade ${toShiftSummary(
-                    offeredShift
-                  )} for ${toShiftSummary(requestedShift)}.`
-                : `Your teammate denied the request for ${toShiftSummary(requestedShift)}.`
-            );
-          } else if (resolvedStatus === 'approved' || resolvedStatus === 'denied') {
-            const finalWord = resolvedStatus === 'approved' ? 'approved' : 'denied';
-
-            if (isTimeOffRequest) {
-              notificationsToInsert = buildNotificationTargets(
-                [request.requestedBy],
-                `Time Off Request ${resolvedStatus === 'approved' ? 'Approved' : 'Denied'}`,
-                `Manager ${finalWord} your time-off request for ${toShiftSummary(requestedShift)}.`
-              );
-            } else {
-              notificationsToInsert = buildNotificationTargets(
-                [request.requestedBy, request.targetEmployeeId],
-                `Schedule Request ${resolvedStatus === 'approved' ? 'Approved' : 'Denied'}`,
-                isTradeRequest
-                  ? `Manager ${finalWord} the trade request for ${toShiftSummary(
-                      offeredShift
-                    )} and ${toShiftSummary(requestedShift)}.`
-                  : `Manager ${finalWord} the schedule request for ${toShiftSummary(requestedShift)}.`
-              );
-            }
-          }
-
-          await insertNotifications(
-            supabase,
-            notificationsToInsert
-          );
-        }
-
-        await loadSupabaseData();
-        if (autoDeniedByConflict) {
-          setAppMessage('Schedule request denied automatically due to a shift conflict.');
-        } else if (resolvedStatus === 'pending_manager') {
-          setAppMessage('Schedule request accepted and sent to manager for final approval.');
-        } else if (resolvedStatus === 'approved') {
-          setAppMessage(
-            isTimeOffRequest
-              ? 'Time-off request approved and shift removed.'
-              : 'Schedule request approved and shifts updated.'
-          );
-        } else {
-          setAppMessage(isTimeOffRequest ? 'Time-off request denied.' : 'Schedule request denied.');
-        }
-      } catch (error) {
-        setAppMessage(error.message);
-      }
-
-      return;
-    }
-
-    if (resolvedStatus === 'approved' && requestedShift) {
-      if (isTimeOffRequest) {
-        setShifts((previous) => previous.filter((shift) => shift.id !== requestedShift.id));
-      } else {
-        setShifts((previous) =>
-          previous.map((shift) => {
-            if (isTradeRequest && offeredShift) {
-              if (shift.id === requestedShift.id) {
-                return {
-                  ...shift,
-                  employeeId: offeredShift.employeeId
-                };
-              }
-
-              if (shift.id === offeredShift.id) {
-                return {
-                  ...shift,
-                  employeeId: requestedShift.employeeId
-                };
-              }
-
-              return shift;
-            }
-
-            if (shift.id === requestedShift.id && request.targetEmployeeId) {
-              return {
-                ...shift,
-                employeeId: request.targetEmployeeId
-              };
-            }
-
-            return shift;
-          })
-        );
-      }
-    }
-
-    setSwapRequests((previous) =>
-      previous.map((request) => {
-        if (request.id !== requestId) {
-          return request;
-        }
-
-        return {
-          ...request,
-          status: resolvedStatus
-        };
-      })
-    );
-
-    if (autoDeniedByConflict) {
-      addLocalNotification('Schedule Request Denied', 'Request was denied automatically due to a shift conflict.');
-    } else if (resolvedStatus === 'pending_manager') {
-      addLocalNotification(
-        'Schedule Request Escalated',
-        isTradeRequest
-          ? 'Teammate accepted the trade. Waiting for manager approval.'
-          : 'Teammate accepted the shift offer. Waiting for manager approval.'
-      );
-    } else if (resolvedStatus === 'approved') {
-      addLocalNotification(
-        isTimeOffRequest ? 'Time Off Request Approved' : 'Schedule Request Approved',
-        isTimeOffRequest
-          ? 'Manager approved the time-off request and removed the shift.'
-          : isTradeRequest
-            ? 'Manager approved the trade and shifts were swapped.'
-            : 'Manager approved the request and the shift was reassigned.'
-      );
-    } else {
-      addLocalNotification(
-        isTimeOffRequest ? 'Time Off Request Denied' : 'Schedule Request Denied',
-        isTimeOffRequest ? 'A time-off request was denied.' : 'A schedule request was denied.'
-      );
-    }
-  }
-
-  async function handleCancelSwapRequest(requestId) {
-    const request = swapRequests.find((item) => item.id === requestId);
-    const requestedShift = request ? shifts.find((shift) => shift.id === request.shiftId) : null;
-    const offeredShift = request ? shifts.find((shift) => shift.id === request.offeredShiftId) : null;
-    const isTradeRequest = Boolean(request?.offeredShiftId);
-
-    if (!request || request.requestedBy !== currentEmployeeId || !request.status?.startsWith('pending')) {
-      return;
-    }
-
-    if (isSupabaseMode && session && supabase) {
-      try {
-        await removeSwapRequest(supabase, requestId);
-
-        if (team?.id) {
-          const managerIds =
-            request.status === 'pending_manager'
-              ? employees
-                  .filter((employee) => employee.role === 'manager')
-                  .map((employee) => employee.id)
-              : [];
-
-          await insertNotifications(
-            supabase,
-            buildNotificationTargets(
-              [request.targetEmployeeId, ...managerIds],
-              'Schedule Request Cancelled',
-              isTradeRequest
-                ? `${currentUser?.name ?? 'A teammate'} cancelled the trade request for ${toShiftSummary(
-                    offeredShift
-                  )} and ${toShiftSummary(requestedShift)}.`
-                : `${currentUser?.name ?? 'A teammate'} cancelled the schedule request for ${toShiftSummary(
-                    requestedShift
-                  )}.`
-            )
-          );
-        }
-
-        await loadSupabaseData();
-        setAppMessage('Schedule request cancelled.');
-      } catch (error) {
-        setAppMessage(error.message);
-      }
-
-      return;
-    }
-
-    setSwapRequests((previous) => previous.filter((item) => item.id !== requestId));
-    addLocalNotification('Schedule Request Cancelled', 'Your pending schedule request was cancelled.');
-  }
-
-  async function handleMarkAllRead() {
-    if (isSupabaseMode && session && supabase) {
-      try {
-        await markAllNotificationsRead(supabase);
-        await loadSupabaseData();
-      } catch (error) {
-        setAppMessage(error.message);
-      }
-
-      return;
-    }
-
-    setNotifications((previous) => previous.map((notification) => ({ ...notification, read: true })));
-  }
-
-  async function handleAddBoardPost(newPost) {
-    if (isSupabaseMode && session && supabase) {
-      try {
-        if (!team?.id) {
-          throw new Error('Join or create a team before posting.');
-        }
-
-        await insertMessagePost(supabase, {
-          ...newPost,
-          teamId: team.id
-        });
-
-        await loadSupabaseData();
-      } catch (error) {
-        setAppMessage(error.message);
-      }
-
-      return;
-    }
-
-    setBoardPosts((previous) => [
-      {
-        id: newId(),
-        ...newPost,
-        createdAt: new Date().toISOString()
-      },
-      ...previous
-    ]);
-  }
-
-  async function handleUpdateEmployeeDepartment(employeeId, departmentValue) {
-    const nextDepartment = normalizeDepartmentName(departmentValue) || null;
-    setUpdatingDepartmentEmployeeId(employeeId);
-
-    if (isSupabaseMode && session && supabase) {
-      try {
-        const previousEmployee = employees.find((employee) => employee.id === employeeId);
-        await updateEmployeeDepartment(supabase, {
-          employeeId,
-          teamId: team?.id ?? null,
-          department: nextDepartment
-        });
-
-        if (team?.id && nextDepartment && !departments.includes(nextDepartment)) {
-          await ensureDepartment(supabase, team.id, nextDepartment);
-        }
-
-        if (team?.id) {
-          const departmentNotifications =
-            employeeId === currentEmployeeId
-              ? []
-              : [
-                  {
-                    teamId: team.id,
-                    targetEmployeeId: employeeId,
-                    title: 'Department Updated',
-                    body: `Your department changed from ${
-                      previousEmployee?.department ?? 'no department'
-                    } to ${nextDepartment ?? 'no department'}.`
-                  }
-                ];
-
-          await insertNotifications(supabase, departmentNotifications);
-        }
-
-        await loadSupabaseData();
-        setAppMessage('Department updated.');
-      } catch (error) {
-        setAppMessage(error.message);
-      } finally {
-        setUpdatingDepartmentEmployeeId('');
-      }
-
-      return;
-    }
-
-    setEmployees((previous) =>
-      previous.map((employee) => {
-        if (employee.id !== employeeId) {
-          return employee;
-        }
-
-        return {
-          ...employee,
-          department: nextDepartment
-        };
-      })
-    );
-
-    if (nextDepartment) {
-      setTeamDepartments((previous) => buildDepartmentList([...(previous ?? []), nextDepartment]));
-    }
-
-    setUpdatingDepartmentEmployeeId('');
-    addLocalNotification('Department Updated', 'Employee department was updated.');
-  }
-
-  async function handleAddDepartment(departmentName) {
-    const normalizedDepartment = normalizeDepartmentName(departmentName);
-
-    if (!normalizedDepartment || departments.includes(normalizedDepartment)) {
-      return;
-    }
-
-    const nextDepartments = buildDepartmentList([...departments, normalizedDepartment]);
-    setDepartmentActionLoading(true);
-
-    if (isSupabaseMode && session && supabase) {
-      try {
-        if (!team?.id) {
-          throw new Error('Join or create a team before managing departments.');
-        }
-
-        await createDepartment(supabase, team.id, normalizedDepartment);
-        await loadSupabaseData();
-        setAppMessage(`Department ${normalizedDepartment} added.`);
-      } catch (error) {
-        setAppMessage(error.message);
-      } finally {
-        setDepartmentActionLoading(false);
-      }
-
-      return;
-    }
-
-    setTeamDepartments(nextDepartments);
-
-    setDepartmentActionLoading(false);
-    addLocalNotification('Department Added', `${normalizedDepartment} was added to the team list.`);
-  }
-
-  async function handleRenameDepartment(currentDepartment, nextDepartmentName) {
-    const sourceDepartment = toStoredDepartment(currentDepartment);
-    const targetDepartment = toStoredDepartment(nextDepartmentName);
-
-    if (
-      sourceDepartment === DEFAULT_DEPARTMENT ||
-      sourceDepartment === targetDepartment ||
-      departments.includes(targetDepartment)
-    ) {
-      return;
-    }
-
-    const nextDepartments = buildDepartmentList(
-      departments.map((departmentName) => {
-        if (departmentName === sourceDepartment) {
-          return targetDepartment;
-        }
-
-        return departmentName;
-      })
-    );
-
-    setDepartmentActionLoading(true);
-
-    if (isSupabaseMode && session && supabase) {
-      try {
-        if (!team?.id) {
-          throw new Error('Join or create a team before managing departments.');
-        }
-
-        const affectedEmployeeIds = employees
-          .filter(
-            (employee) =>
-              toStoredDepartment(employee.department) === sourceDepartment &&
-              employee.id !== currentEmployeeId
-          )
-          .map((employee) => employee.id);
-
-        await replaceDepartmentForTeam(supabase, {
-          teamId: team.id,
-          fromDepartment: sourceDepartment,
-          toDepartment: targetDepartment
-        });
-        await renameDepartment(supabase, {
-          teamId: team.id,
-          fromName: sourceDepartment,
-          toName: targetDepartment
-        });
-        await insertNotifications(
-          supabase,
-          affectedEmployeeIds.map((employeeId) => ({
-            teamId: team.id,
-            targetEmployeeId: employeeId,
-            title: 'Department Updated',
-            body: `Your department changed from ${sourceDepartment} to ${targetDepartment}.`
-          }))
-        );
-        await loadSupabaseData();
-        setAppMessage(`Department ${sourceDepartment} renamed to ${targetDepartment}.`);
-      } catch (error) {
-        setAppMessage(error.message);
-      } finally {
-        setDepartmentActionLoading(false);
-      }
-
-      return;
-    }
-
-    setEmployees((previous) =>
-      previous.map((employee) => {
-        if (toStoredDepartment(employee.department) !== sourceDepartment) {
-          return employee;
-        }
-
-        return {
-          ...employee,
-          department: targetDepartment
-        };
-      })
-    );
-
-    setTeamDepartments(nextDepartments);
-
-    setDepartmentActionLoading(false);
-    addLocalNotification('Department Renamed', `${sourceDepartment} is now ${targetDepartment}.`);
-  }
-
-  async function handleDeleteDepartment(departmentName) {
-    const sourceDepartment = toStoredDepartment(departmentName);
-
-    if (sourceDepartment === DEFAULT_DEPARTMENT) {
-      return;
-    }
-
-    const nextDepartments = buildDepartmentList(
-      departments.filter((departmentValue) => departmentValue !== sourceDepartment)
-    );
-
-    setDepartmentActionLoading(true);
-
-    if (isSupabaseMode && session && supabase) {
-      try {
-        if (!team?.id) {
-          throw new Error('Join or create a team before managing departments.');
-        }
-
-        const affectedEmployeeIds = employees
-          .filter(
-            (employee) =>
-              toStoredDepartment(employee.department) === sourceDepartment &&
-              employee.id !== currentEmployeeId
-          )
-          .map((employee) => employee.id);
-
-        await replaceDepartmentForTeam(supabase, {
-          teamId: team.id,
-          fromDepartment: sourceDepartment,
-          toDepartment: null
-        });
-        await deleteDepartment(supabase, {
-          teamId: team.id,
-          name: sourceDepartment
-        });
-        await insertNotifications(
-          supabase,
-          affectedEmployeeIds.map((employeeId) => ({
-            teamId: team.id,
-            targetEmployeeId: employeeId,
-            title: 'Department Updated',
-            body: `Your department ${sourceDepartment} was removed.`
-          }))
-        );
-        await loadSupabaseData();
-        setAppMessage(`Department ${sourceDepartment} deleted.`);
-      } catch (error) {
-        setAppMessage(error.message);
-      } finally {
-        setDepartmentActionLoading(false);
-      }
-
-      return;
-    }
-
-    setEmployees((previous) =>
-      previous.map((employee) => {
-        if (toStoredDepartment(employee.department) !== sourceDepartment) {
-          return employee;
-        }
-
-        return {
-          ...employee,
-          department: null
-        };
-      })
-    );
-
-    setTeamDepartments(nextDepartments);
-
-    setDepartmentActionLoading(false);
-    addLocalNotification('Department Deleted', `${sourceDepartment} moved to no department.`);
+  function handleAuthModeChange(nextMode) {
+    setAuthMode(nextMode);
+    setAuthError('');
+    setShowPassword(false);
   }
 
   async function handleSignIn(event) {
@@ -1629,7 +532,184 @@ export default function App() {
   const waitingForInitialProfile = isSupabaseMode && session && dataLoading && !currentUser;
   const showCoreApp = !showAuthPanel && !waitingForInitialProfile && !missingProfile && !needsTeamSetup;
   const canViewManagerPage = role === 'manager';
-  const isManagerPage = showCoreApp && canViewManagerPage && activePage === 'manager';
+  const isManagerRoute = currentPath === ROUTE_MANAGER;
+  const isManagerPage = showCoreApp && canViewManagerPage && isManagerRoute;
+  const currentBoardUser =
+    currentUser ?? {
+      id: currentEmployeeId,
+      name: session?.user?.email ?? 'Unknown User'
+    };
+  const handlePrevWeek = useCallback(() => {
+    setWeekStart(toIsoDate(subWeeks(weekDate, 1)));
+  }, [weekDate]);
+  const handleNextWeek = useCallback(() => {
+    setWeekStart(toIsoDate(addWeeks(weekDate, 1)));
+  }, [weekDate]);
+  const schedulePageProps = useMemo(
+    () => ({
+      dashboard: {
+        shifts,
+        swapRequests,
+        employees,
+        weekStart,
+        role,
+        currentEmployeeId
+      },
+      calendar: {
+        visibleEmployees,
+        shifts,
+        weekStart,
+        role,
+        currentEmployeeId,
+        swapRequests,
+        onAddShift: handleAddShift,
+        onShiftClick: handleShiftClick,
+        onPrevWeek: handlePrevWeek,
+        onNextWeek: handleNextWeek,
+        disableWeekControls: dataLoading,
+        export: {
+          shifts,
+          employees,
+          role,
+          currentEmployeeId,
+          weekStart
+        }
+      },
+      requests: {
+        role,
+        currentEmployeeId,
+        swapRequests,
+        shifts,
+        employees,
+        onDecision: handleSwapDecision,
+        onCancel: handleCancelSwapRequest
+      },
+      chat: {
+        posts: postsWithAuthors,
+        currentUser: currentBoardUser,
+        role,
+        onAddPost: handleAddBoardPost
+      },
+      modals: {
+        editShift: {
+          shift: editingShift,
+          employees,
+          onSave: handleSaveShift,
+          onDelete: handleDeleteShift,
+          onClose: closeEditShift
+        },
+        ownShiftAction: {
+          shift: ownShiftActionShift,
+          onOfferShift: handleOpenOwnShiftOffer,
+          onRequestTimeOff: handleOpenOwnShiftTimeOff,
+          onClose: closeOwnShiftAction
+        },
+        swapTrade: {
+          targetShift: swapTradeTargetShift,
+          employees,
+          offeredShifts: tradeableShifts,
+          onSubmit: handleSubmitSwapTrade,
+          onClose: closeSwapTrade
+        },
+        swapOffer: {
+          shift: swapOfferShift,
+          targetEmployees: offerTargetEmployees,
+          onSubmit: handleSubmitSwapOffer,
+          onClose: closeSwapOffer
+        },
+        timeOff: {
+          shift: timeOffShift,
+          onSubmit: handleSubmitTimeOffRequest,
+          onClose: closeTimeOff
+        }
+      }
+    }),
+    [
+      shifts,
+      swapRequests,
+      employees,
+      weekStart,
+      role,
+      currentEmployeeId,
+      visibleEmployees,
+      handleAddShift,
+      handleShiftClick,
+      handlePrevWeek,
+      handleNextWeek,
+      dataLoading,
+      handleSwapDecision,
+      handleCancelSwapRequest,
+      postsWithAuthors,
+      currentBoardUser,
+      handleAddBoardPost,
+      editingShift,
+      handleSaveShift,
+      handleDeleteShift,
+      closeEditShift,
+      ownShiftActionShift,
+      handleOpenOwnShiftOffer,
+      handleOpenOwnShiftTimeOff,
+      closeOwnShiftAction,
+      swapTradeTargetShift,
+      tradeableShifts,
+      handleSubmitSwapTrade,
+      closeSwapTrade,
+      swapOfferShift,
+      offerTargetEmployees,
+      handleSubmitSwapOffer,
+      closeSwapOffer,
+      timeOffShift,
+      handleSubmitTimeOffRequest,
+      closeTimeOff
+    ]
+  );
+  const managerPageProps = useMemo(
+    () => ({
+      importSection: {
+        weekStart,
+        employees,
+        onImport: handleCsvImport
+      },
+      requestsSection: {
+        currentEmployeeId,
+        swapRequests,
+        shifts,
+        employees,
+        onDecision: handleSwapDecision
+      },
+      departmentsSection: {
+        departments,
+        employees,
+        onAddDepartment: handleAddDepartment,
+        onRenameDepartment: handleRenameDepartment,
+        onDeleteDepartment: handleDeleteDepartment,
+        isSaving: departmentActionLoading
+      },
+      rosterSection: {
+        employees,
+        departments,
+        onUpdateDepartment: handleUpdateEmployeeDepartment,
+        updatingEmployeeId: updatingDepartmentEmployeeId,
+        managerEmployeeId: currentEmployeeId
+      }
+    }),
+    [
+      weekStart,
+      employees,
+      handleCsvImport,
+      currentEmployeeId,
+      swapRequests,
+      shifts,
+      handleSwapDecision,
+      departments,
+      handleAddDepartment,
+      handleRenameDepartment,
+      handleDeleteDepartment,
+      departmentActionLoading,
+      handleUpdateEmployeeDepartment,
+      updatingDepartmentEmployeeId
+    ]
+  );
 
   return (
     <div className={`app-shell ${showAuthPanel && !authLoading ? 'auth-view' : ''}`}>
@@ -1639,36 +719,31 @@ export default function App() {
           <p>Employee scheduling template with Supabase-ready architecture.</p>
 
           {!isSupabaseMode ? (
-            <p className="status-banner">Running with mock data. Add `.env.local` values to connect Supabase.</p>
+            <StatusBanner>Running with mock data. Add `.env.local` values to connect Supabase.</StatusBanner>
           ) : null}
 
           {isSupabaseMode && session ? (
-            <p className="status-banner">
+            <StatusBanner>
               Connected as {session.user.email}
               {team?.name ? ` | Team: ${team.name}` : ''}
               {team?.inviteCode && role === 'manager' ? ` | Invite Code: ${team.inviteCode}` : ''}
-            </p>
+            </StatusBanner>
           ) : null}
 
-          {appMessage ? <p className="status-banner">{appMessage}</p> : null}
-          {dataLoading ? <p className="status-banner">Syncing latest data...</p> : null}
+          {appMessage ? <StatusBanner>{appMessage}</StatusBanner> : null}
+          {dataLoading ? <StatusBanner>Syncing latest data...</StatusBanner> : null}
         </div>
 
         <div className="header-actions">
           {!isSupabaseMode ? (
             <>
-              <div className="role-toggle" role="tablist" aria-label="Role toggle">
-                {ROLES.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className={role === option ? 'active' : ''}
-                    onClick={() => handleRoleChange(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
+              <SegmentedToggle
+                className="role-toggle"
+                ariaLabel="Role toggle"
+                options={ROLE_TOGGLE_OPTIONS}
+                value={role}
+                onChange={handleRoleChange}
+              />
 
               <label>
                 Active User
@@ -1703,18 +778,13 @@ export default function App() {
 
           {showCoreApp ? (
             canViewManagerPage ? (
-              <div className="role-toggle" role="tablist" aria-label="Page toggle">
-                {PAGE_MODES.map((pageMode) => (
-                  <button
-                    key={pageMode}
-                    type="button"
-                    className={activePage === pageMode ? 'active' : ''}
-                    onClick={() => setActivePage(pageMode)}
-                  >
-                    {pageMode === 'schedule' ? 'Schedule' : 'Manager Page'}
-                  </button>
-                ))}
-              </div>
+              <SegmentedToggle
+                className="role-toggle"
+                ariaLabel="Page toggle"
+                options={PAGE_TOGGLE_OPTIONS}
+                value={currentPath}
+                onChange={(path) => navigateTo(path)}
+              />
             ) : null
           ) : null}
 
@@ -1727,146 +797,24 @@ export default function App() {
       {authLoading ? <section className="panel">Checking Supabase session...</section> : null}
 
       {showAuthPanel && !authLoading ? (
-        <section className="panel auth-panel auth-template-panel">
-          <div className="auth-mode-toggle auth-template-toggle" role="tablist" aria-label="Authentication mode">
-            <button
-              type="button"
-              className={authMode === 'sign_in' ? 'active' : ''}
-              onClick={() => {
-                setAuthMode('sign_in');
-                setAuthError('');
-                setShowPassword(false);
-              }}
-            >
-              Login
-            </button>
-            <button
-              type="button"
-              className={authMode === 'sign_up' ? 'active' : ''}
-              onClick={() => {
-                setAuthMode('sign_up');
-                setAuthError('');
-                setShowPassword(false);
-              }}
-            >
-              Sign Up
-            </button>
-          </div>
-
-          <h3 className="auth-template-title">{authMode === 'sign_up' ? 'Create account' : 'Welcome back'}</h3>
-
-          <form className="auth-form auth-template-form" onSubmit={authMode === 'sign_up' ? handleSignUp : handleSignIn}>
-            {authMode === 'sign_up' ? (
-              <label className="auth-field">
-                <span>Full Name</span>
-                <div className="auth-input-wrap">
-                  <span className="auth-input-icon" aria-hidden="true">
-                    👤
-                  </span>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                    required
-                    autoComplete="name"
-                    placeholder="John Doe"
-                  />
-                </div>
-              </label>
-            ) : null}
-
-            <label className="auth-field">
-              <span>Email</span>
-              <div className="auth-input-wrap">
-                <span className="auth-input-icon" aria-hidden="true">
-                  📨
-                </span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                />
-              </div>
-            </label>
-
-            <label className="auth-field">
-              <span>Password</span>
-              <div className="auth-input-wrap">
-                <span className="auth-input-icon" aria-hidden="true">
-                  🔒
-                </span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                  autoComplete={authMode === 'sign_up' ? 'new-password' : 'current-password'}
-                  placeholder={authMode === 'sign_up' ? 'Create a password' : 'Enter password'}
-                />
-                <button
-                  type="button"
-                  className="auth-input-action"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  onClick={() => setShowPassword((value) => !value)}
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-              </div>
-            </label>
-
-            {authMode === 'sign_in' ? (
-              <button type="button" className="inline-link auth-forgot-link" onClick={handleForgotPassword}>
-                Forgot password?
-              </button>
-            ) : null}
-
-            <button type="submit" className="primary auth-submit-button">
-              {authMode === 'sign_up' ? 'Sign Up' : 'Log In'}
-            </button>
-
-            <div className="auth-divider">
-              <span>Or continue with</span>
-            </div>
-
-            <div className="auth-social-row">
-              <button
-                type="button"
-                className={`auth-social-button ${oauthLoadingProvider === 'google' ? 'is-loading' : ''}`}
-                disabled={Boolean(oauthLoadingProvider)}
-                aria-busy={oauthLoadingProvider === 'google'}
-                onClick={() => handleOAuthSignIn('google')}
-              >
-                <span className="auth-social-icon" aria-hidden="true">
-                  G
-                </span>
-                <span>{oauthLoadingProvider === 'google' ? 'Connecting...' : 'Google'}</span>
-                {oauthLoadingProvider === 'google' ? (
-                  <span className="auth-social-spinner" aria-hidden="true" />
-                ) : null}
-              </button>
-              <button
-                type="button"
-                className={`auth-social-button ${oauthLoadingProvider === 'facebook' ? 'is-loading' : ''}`}
-                disabled={Boolean(oauthLoadingProvider)}
-                aria-busy={oauthLoadingProvider === 'facebook'}
-                onClick={() => handleOAuthSignIn('facebook')}
-              >
-                <span className="auth-social-icon" aria-hidden="true">
-                  f
-                </span>
-                <span>{oauthLoadingProvider === 'facebook' ? 'Connecting...' : 'Facebook'}</span>
-                {oauthLoadingProvider === 'facebook' ? (
-                  <span className="auth-social-spinner" aria-hidden="true" />
-                ) : null}
-              </button>
-            </div>
-          </form>
-
-          {authError ? <p className="status-banner">{authError}</p> : null}
-        </section>
+        <AuthPanel
+          authMode={authMode}
+          onAuthModeChange={handleAuthModeChange}
+          email={email}
+          onEmailChange={setEmail}
+          password={password}
+          onPasswordChange={setPassword}
+          showPassword={showPassword}
+          onTogglePassword={() => setShowPassword((value) => !value)}
+          oauthLoadingProvider={oauthLoadingProvider}
+          fullName={fullName}
+          onFullNameChange={setFullName}
+          onSignIn={handleSignIn}
+          onSignUp={handleSignUp}
+          onForgotPassword={handleForgotPassword}
+          onOAuthSignIn={handleOAuthSignIn}
+          authError={authError}
+        />
       ) : null}
 
       {missingProfile ? (
@@ -1877,192 +825,24 @@ export default function App() {
       ) : null}
 
       {needsTeamSetup ? (
-        <section className="panel auth-panel">
-          <h3>Set Up Your Team</h3>
-          <p>Create a new team (you become manager) or join an existing one with an invite code.</p>
-
-          <form className="auth-form" onSubmit={handleTeamSetupSubmit}>
-            <div className="auth-mode-toggle" role="tablist" aria-label="Team setup mode">
-              {TEAM_MODES.map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={teamSetupMode === mode ? 'active' : ''}
-                  onClick={() => setTeamSetupMode(mode)}
-                >
-                  {mode === 'create' ? 'Create Team' : 'Join Team'}
-                </button>
-              ))}
-            </div>
-
-            {teamSetupMode === 'create' ? (
-              <label>
-                Team Name
-                <input
-                  type="text"
-                  value={teamNameInput}
-                  onChange={(event) => setTeamNameInput(event.target.value)}
-                  placeholder="Downtown Ops"
-                  required
-                />
-              </label>
-            ) : (
-              <label>
-                Invite Code
-                <input
-                  type="text"
-                  value={inviteCodeInput}
-                  onChange={(event) => setInviteCodeInput(event.target.value.toUpperCase())}
-                  placeholder="ABC12345"
-                  required
-                />
-              </label>
-            )}
-
-            <button type="submit" className="primary">
-              Continue
-            </button>
-          </form>
-
-          {authError ? <p className="status-banner">{authError}</p> : null}
-        </section>
+        <TeamSetupPanel
+          teamSetupMode={teamSetupMode}
+          onTeamSetupModeChange={setTeamSetupMode}
+          teamNameInput={teamNameInput}
+          onTeamNameChange={setTeamNameInput}
+          inviteCodeInput={inviteCodeInput}
+          onInviteCodeChange={setInviteCodeInput}
+          onSubmit={handleTeamSetupSubmit}
+          authError={authError}
+        />
       ) : null}
 
       {showCoreApp ? (
-        <>
-          {!isManagerPage ? (
-            <DashboardStats
-              shifts={shifts}
-              swapRequests={swapRequests}
-              employees={employees}
-              weekStart={weekStart}
-              role={role}
-              currentEmployeeId={currentEmployeeId}
-            />
-          ) : null}
-
-          {isManagerPage ? (
-            <ManagerPage
-              weekStart={weekStart}
-              departments={departments}
-              employees={employees}
-              onImport={handleCsvImport}
-              onAddDepartment={handleAddDepartment}
-              onRenameDepartment={handleRenameDepartment}
-              onDeleteDepartment={handleDeleteDepartment}
-              departmentActionLoading={departmentActionLoading}
-              onUpdateDepartment={handleUpdateEmployeeDepartment}
-              updatingEmployeeId={updatingDepartmentEmployeeId}
-              currentEmployeeId={currentEmployeeId}
-              swapRequests={swapRequests}
-              shifts={shifts}
-              onDecision={handleSwapDecision}
-            />
-          ) : (
-            <WeeklyCalendar
-              employees={visibleEmployees}
-              shifts={shifts}
-              weekStart={weekStart}
-              role={role}
-              currentEmployeeId={currentEmployeeId}
-              swapRequests={swapRequests}
-              onAddShift={handleAddShift}
-              onShiftClick={handleShiftClick}
-              onPrevWeek={() => setWeekStart(toIsoDate(subWeeks(weekDate, 1)))}
-              onNextWeek={() => setWeekStart(toIsoDate(addWeeks(weekDate, 1)))}
-              disableWeekControls={dataLoading}
-              exportControl={
-                <ExportButtons
-                  shifts={shifts}
-                  employees={employees}
-                  role={role}
-                  currentEmployeeId={currentEmployeeId}
-                  weekStart={weekStart}
-                  compact
-                  compactLabel="Export"
-                />
-              }
-            />
-          )}
-
-          {!isManagerPage ? (
-            role === 'employee' ? (
-              <SwapRequestsPanel
-                title="Your Schedule Requests"
-                role={role}
-                currentEmployeeId={currentEmployeeId}
-                swapRequests={swapRequests}
-                shifts={shifts}
-                employees={employees}
-                onDecision={handleSwapDecision}
-                onCancel={handleCancelSwapRequest}
-              />
-            ) : null
-          ) : null}
-
-          {!isManagerPage ? (
-            <ChatBubbleBoard
-              posts={postsWithAuthors}
-              currentUser={
-                currentUser ?? {
-                  id: currentEmployeeId,
-                  name: session?.user?.email ?? 'Unknown User'
-                }
-              }
-              role={role}
-              onAddPost={handleAddBoardPost}
-            />
-          ) : null}
-
-          {editingShift ? (
-            <ShiftEditorModal
-              shift={editingShift}
-              employees={employees}
-              onSave={handleSaveShift}
-              onDelete={handleDeleteShift}
-              onClose={() => setEditingShift(null)}
-            />
-          ) : null}
-
-          {ownShiftActionShift ? (
-            <OwnShiftActionModal
-              shift={ownShiftActionShift}
-              onOfferShift={handleOpenOwnShiftOffer}
-              onRequestTimeOff={handleOpenOwnShiftTimeOff}
-              onClose={() => setOwnShiftActionShift(null)}
-            />
-          ) : null}
-
-          {swapTradeTargetShift ? (
-            <SwapTradeRequestModal
-              targetShift={swapTradeTargetShift}
-              targetEmployeeName={
-                employees.find((employee) => employee.id === swapTradeTargetShift.employeeId)?.name ??
-                'teammate'
-              }
-              offeredShifts={tradeableShifts}
-              onSubmit={handleSubmitSwapTrade}
-              onClose={() => setSwapTradeTargetShift(null)}
-            />
-          ) : null}
-
-          {swapOfferShift ? (
-            <SwapOfferShiftModal
-              offeredShift={swapOfferShift}
-              targetEmployees={offerTargetEmployees}
-              onSubmit={handleSubmitSwapOffer}
-              onClose={() => setSwapOfferShift(null)}
-            />
-          ) : null}
-
-          {timeOffShift ? (
-            <TimeOffRequestModal
-              shift={timeOffShift}
-              onSubmit={handleSubmitTimeOffRequest}
-              onClose={() => setTimeOffShift(null)}
-            />
-          ) : null}
-        </>
+        isManagerPage ? (
+          <ManagerPage {...managerPageProps} />
+        ) : (
+          <SchedulePage {...schedulePageProps} />
+        )
       ) : null}
     </div>
   );

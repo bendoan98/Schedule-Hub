@@ -1,4 +1,4 @@
-import { buildDepartmentList, toStoredDepartment } from '../utils/department';
+import { buildDepartmentList, normalizeDepartmentName } from '../utils/department';
 
 function normalizeError(error, fallback) {
   if (!error) {
@@ -32,7 +32,7 @@ function mapTeam(row) {
 }
 
 function mapDepartmentName(row) {
-  return toStoredDepartment(row.name);
+  return normalizeDepartmentName(row.name);
 }
 
 function mapShift(row) {
@@ -167,7 +167,7 @@ export async function fetchAppData(client) {
   }
 
   const departmentNamesById = new Map(
-    (departmentsRes.data ?? []).map((row) => [row.id, toStoredDepartment(row.name)])
+    (departmentsRes.data ?? []).map((row) => [row.id, normalizeDepartmentName(row.name) || null])
   );
 
   return {
@@ -206,7 +206,10 @@ export async function joinTeamWithInviteCode(client, inviteCode) {
 }
 
 export async function createDepartment(client, teamId, departmentName) {
-  const name = toStoredDepartment(departmentName);
+  const name = normalizeDepartmentName(departmentName);
+  if (!name) {
+    throw new Error('Department name is required.');
+  }
   const { error } = await client.from('departments').insert({
     team_id: teamId,
     name
@@ -218,10 +221,10 @@ export async function createDepartment(client, teamId, departmentName) {
 }
 
 export async function renameDepartment(client, { teamId, fromName, toName }) {
-  const source = toStoredDepartment(fromName);
-  const target = toStoredDepartment(toName);
+  const source = normalizeDepartmentName(fromName);
+  const target = normalizeDepartmentName(toName);
 
-  if (source === target) {
+  if (!source || !target || source === target) {
     return;
   }
 
@@ -237,7 +240,10 @@ export async function renameDepartment(client, { teamId, fromName, toName }) {
 }
 
 export async function deleteDepartment(client, { teamId, name }) {
-  const normalized = toStoredDepartment(name);
+  const normalized = normalizeDepartmentName(name);
+  if (!normalized) {
+    return;
+  }
   const { error } = await client
     .from('departments')
     .delete()
@@ -250,7 +256,10 @@ export async function deleteDepartment(client, { teamId, name }) {
 }
 
 export async function ensureDepartment(client, teamId, departmentName) {
-  const name = toStoredDepartment(departmentName);
+  const name = normalizeDepartmentName(departmentName);
+  if (!name) {
+    return;
+  }
   const { error } = await client.from('departments').upsert(
     {
       team_id: teamId,
@@ -268,8 +277,12 @@ export async function ensureDepartment(client, teamId, departmentName) {
 }
 
 export async function replaceDepartmentForTeam(client, { teamId, fromDepartment, toDepartment }) {
-  const source = toStoredDepartment(fromDepartment);
-  const target = toDepartment == null ? null : toStoredDepartment(toDepartment);
+  const source = normalizeDepartmentName(fromDepartment);
+  const target = toDepartment == null ? null : normalizeDepartmentName(toDepartment) || null;
+
+  if (!source) {
+    return;
+  }
 
   if (source === target) {
     return;
@@ -329,6 +342,12 @@ export async function updateEmployeeDepartment(client, { employeeId, teamId, dep
   let departmentId = null;
 
   if (department != null) {
+    const normalizedDepartment = normalizeDepartmentName(department);
+
+    if (!normalizedDepartment) {
+      throw new Error('Department name is required when assigning a department.');
+    }
+
     if (!teamId) {
       throw new Error('Team is required when assigning a department.');
     }
@@ -337,7 +356,7 @@ export async function updateEmployeeDepartment(client, { employeeId, teamId, dep
       .from('departments')
       .select('id')
       .eq('team_id', teamId)
-      .eq('name', department)
+      .eq('name', normalizedDepartment)
       .maybeSingle();
 
     if (lookupError) {
@@ -345,7 +364,7 @@ export async function updateEmployeeDepartment(client, { employeeId, teamId, dep
     }
 
     if (!departmentRow?.id) {
-      throw new Error(`Department ${department} not found for this team.`);
+      throw new Error(`Department ${normalizedDepartment} not found for this team.`);
     }
 
     departmentId = departmentRow.id;

@@ -14,7 +14,6 @@ create table if not exists public.teams (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   invite_code text not null unique default public.generate_invite_code(),
-  departments text[] not null default array['UNASSIGNED']::text[],
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -22,7 +21,6 @@ create table if not exists public.teams (
 alter table public.teams
   add column if not exists name text,
   add column if not exists invite_code text,
-  add column if not exists departments text[] default array['UNASSIGNED']::text[],
   add column if not exists created_by uuid references auth.users (id) on delete set null,
   add column if not exists created_at timestamptz not null default timezone('utc', now());
 
@@ -32,11 +30,6 @@ where invite_code is null;
 
 create unique index if not exists teams_invite_code_unique_idx on public.teams (invite_code);
 alter table public.teams alter column invite_code set default public.generate_invite_code();
-alter table public.teams alter column departments set default array['UNASSIGNED']::text[];
-update public.teams
-set departments = array['UNASSIGNED']::text[]
-where departments is null or cardinality(departments) = 0;
-alter table public.teams alter column departments set not null;
 
 create table if not exists public.departments (
   id uuid primary key default gen_random_uuid(),
@@ -49,16 +42,28 @@ create table if not exists public.departments (
 create index if not exists departments_team_idx on public.departments (team_id);
 create index if not exists departments_team_name_idx on public.departments (team_id, name);
 
-insert into public.departments (team_id, name)
-select t.id, dep.name
-from public.teams t
-cross join lateral unnest(coalesce(t.departments, array['UNASSIGNED']::text[])) as dep(name)
-where not exists (
-  select 1
-  from public.departments d
-  where d.team_id = t.id
-)
-on conflict (team_id, name) do nothing;
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'teams'
+      and column_name = 'departments'
+  ) then
+    execute $legacy$
+      insert into public.departments (team_id, name)
+      select t.id, upper(trim(dep.name))
+      from public.teams t
+      cross join lateral unnest(coalesce(t.departments, array[]::text[])) as dep(name)
+      where nullif(trim(dep.name), '') is not null
+      on conflict (team_id, name) do nothing
+    $legacy$;
+
+    execute 'alter table public.teams drop column if exists departments';
+  end if;
+end;
+$$;
 
 create table if not exists public.employees (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -204,10 +209,6 @@ begin
       department_id = null
   where id = current_user_id;
 
-  insert into public.departments (team_id, name)
-  values (created_team.id, 'UNASSIGNED')
-  on conflict on constraint departments_team_name_unique do nothing;
-
   return query
   select created_team.id, created_team.name, created_team.invite_code, 'manager'::text;
 end;
@@ -253,10 +254,6 @@ begin
       role = 'employee',
       department_id = null
   where id = current_user_id;
-
-  insert into public.departments (team_id, name)
-  values (requested_team.id, 'UNASSIGNED')
-  on conflict on constraint departments_team_name_unique do nothing;
 
   return query
   select requested_team.id, requested_team.name, requested_team.invite_code, 'employee'::text;

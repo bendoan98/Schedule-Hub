@@ -106,58 +106,55 @@ vi.mock('./features/export/ExportButtons', () => ({
 }));
 
 vi.mock('./features/manager/ManagerPage', () => ({
-  default: ({
-    departments,
-    employees,
-    onImport,
-    onAddDepartment,
-    onRenameDepartment,
-    onDeleteDepartment,
-    onUpdateDepartment
-  }) => (
-    <section>
-      <p data-testid="department-list">{departments.join('|')}</p>
-      <p data-testid="employee-department">
-        {employees.find((employee) => employee.id === 'emp-1')?.department ?? 'null'}
-      </p>
-      <button type="button" onClick={() => onAddDepartment('Support')}>
-        Add Department
-      </button>
-      <button type="button" onClick={() => onRenameDepartment('SUPPORT', 'Service')}>
-        Rename Department
-      </button>
-      <button type="button" onClick={() => onUpdateDepartment('emp-1', 'SERVICE')}>
-        Update Department
-      </button>
-      <button type="button" onClick={() => onDeleteDepartment('SERVICE')}>
-        Delete Department
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          onImport(
-            {
-              importedEmployees: [],
-              importedShifts: [
-                {
-                  id: 'import-1',
-                  employeeId: 'emp-1',
-                  day: 3,
-                  startTime: '10:00',
-                  endTime: '18:00',
-                  weekStart: '2026-03-16'
-                }
-              ],
-              rowCount: 1
-            },
-            '2026-03-16'
-          )
-        }
-      >
-        Import Csv
-      </button>
-    </section>
-  )
+  default: ({ importSection, departmentsSection, rosterSection }) => {
+    const departments = departmentsSection?.departments ?? [];
+    const employees = rosterSection?.employees ?? importSection?.employees ?? [];
+
+    return (
+      <section>
+        <p data-testid="department-list">{departments.join('|')}</p>
+        <p data-testid="employee-department">
+          {employees.find((employee) => employee.id === 'emp-1')?.department ?? 'null'}
+        </p>
+        <button type="button" onClick={() => departmentsSection?.onAddDepartment('Support')}>
+          Add Department
+        </button>
+        <button type="button" onClick={() => departmentsSection?.onRenameDepartment('SUPPORT', 'Service')}>
+          Rename Department
+        </button>
+        <button type="button" onClick={() => rosterSection?.onUpdateDepartment('emp-1', 'SERVICE')}>
+          Update Department
+        </button>
+        <button type="button" onClick={() => departmentsSection?.onDeleteDepartment('SERVICE')}>
+          Delete Department
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            importSection?.onImport(
+              {
+                importedEmployees: [],
+                importedShifts: [
+                  {
+                    id: 'import-1',
+                    employeeId: 'emp-1',
+                    day: 3,
+                    startTime: '10:00',
+                    endTime: '18:00',
+                    weekStart: '2026-03-16'
+                  }
+                ],
+                rowCount: 1
+              },
+              '2026-03-16'
+            )
+          }
+        >
+          Import Csv
+        </button>
+      </section>
+    );
+  }
 }));
 
 describe('App', () => {
@@ -186,7 +183,6 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /manager page/i }));
 
-    expect(screen.getByTestId('department-list').textContent).toContain('UNASSIGNED');
     expect(screen.getByTestId('department-list').textContent).toContain('OPS');
 
     fireEvent.click(screen.getByRole('button', { name: /add department/i }));

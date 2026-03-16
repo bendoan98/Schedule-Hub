@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { parseScheduleCsv } from '../../utils/csv';
 import { fromIsoDate, getMonday, toIsoDate } from '../../utils/date';
+import PanelSection from '../../components/ui/PanelSection';
 
 function normalizeWeekStart(weekValue, fallbackWeekStart) {
   if (!weekValue) {
@@ -84,9 +85,11 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
   }
 
   return (
-    <section className="panel csv-panel">
-      <h3>CSV Import</h3>
-      <p>Accepted columns: role, employee_name, monday through sunday.</p>
+    <PanelSection
+      className="panel csv-panel"
+      title="CSV Import"
+      description="Accepted columns: role, employee_name, monday through sunday."
+    >
       <label className="csv-week-field">
         Week of
         <input
@@ -102,6 +105,6 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
         <span>{isLoading ? 'Importing...' : 'Upload CSV'}</span>
       </label>
       {status ? <p className="status-message">{status}</p> : null}
-    </section>
+    </PanelSection>
   );
 }
