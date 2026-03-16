@@ -277,15 +277,54 @@ button.danger:not(:disabled):hover {
   text-overflow: ellipsis;
 }
 
-.file-input-label {
-  display: inline-flex;
+.csv-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
   align-items: center;
-  gap: 0.65rem;
-  width: fit-content;
 }
 
-.file-input-label input {
-  max-width: 220px;
+.csv-import-button {
+  min-width: 180px;
+}
+
+.csv-import-button-compact {
+  min-width: 0;
+}
+
+.csv-template-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--text);
+  transition:
+    transform 120ms ease,
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.csv-template-link:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.csv-template-link:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.csv-selected-file {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .status-message {

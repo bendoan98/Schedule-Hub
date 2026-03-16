@@ -21,6 +21,7 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [importWeekStart, setImportWeekStart] = useState(weekStart);
+  const [selectedFileName, setSelectedFileName] = useState('');
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
       return;
     }
 
+    setSelectedFileName(file.name);
     setIsLoading(true);
     setStatus('Parsing CSV...');
 
@@ -49,6 +51,10 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
       setIsLoading(false);
       event.target.value = '';
     }
+  }
+
+  function handleOpenFilePicker() {
+    inputRef.current?.click();
   }
 
   if (compact) {
@@ -73,11 +79,12 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
         />
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
+          className="primary csv-import-button csv-import-button-compact"
+          onClick={handleOpenFilePicker}
           disabled={isLoading}
           title="Accepted columns: role, employee_name, monday through sunday."
         >
-          {isLoading ? 'Importing...' : 'Import CSV'}
+          {isLoading ? 'Importing CSV...' : 'Choose CSV'}
         </button>
         {status ? <small className="csv-inline-status">{status}</small> : null}
       </div>
@@ -100,10 +107,31 @@ export default function CsvImportForm({ weekStart, employees, onImport, compact 
         />
       </label>
       <small className="csv-week-help">Imported shifts are saved to the Monday of this selected week.</small>
-      <label className="file-input-label">
-        <input type="file" accept=".csv,text/csv" onChange={handleFileChange} disabled={isLoading} />
-        <span>{isLoading ? 'Importing...' : 'Upload CSV'}</span>
-      </label>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,text/csv"
+        onChange={handleFileChange}
+        disabled={isLoading}
+        className="sr-only-file-input"
+      />
+      <div className="csv-import-actions">
+        <button
+          type="button"
+          className="primary csv-import-button"
+          onClick={handleOpenFilePicker}
+          disabled={isLoading}
+          title="Accepted columns: role, employee_name, monday through sunday."
+        >
+          {isLoading ? 'Importing CSV...' : 'Choose CSV and Import'}
+        </button>
+        <a className="csv-template-link" href="/example-schedule.csv" download>
+          Download Example CSV
+        </a>
+      </div>
+      <small className="csv-selected-file">
+        {selectedFileName ? `Last selected: ${selectedFileName}` : 'No file selected.'}
+      </small>
       {status ? <p className="status-message">{status}</p> : null}
     </PanelSection>
   );
