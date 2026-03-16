@@ -159,10 +159,12 @@ button.danger:not(:disabled):hover {
 }
 
 .header-brand {
+  grid-column: 1;
   justify-self: start;
 }
 
 .header-center {
+  grid-column: 2;
   justify-self: center;
   display: flex;
   align-items: center;
@@ -178,11 +180,16 @@ button.danger:not(:disabled):hover {
 }
 
 .header-actions {
+  grid-column: 3;
   display: flex;
   justify-self: end;
   align-items: end;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.header-actions-auth {
+  justify-content: flex-end;
 }
 
 .status-banner {
@@ -207,7 +214,6 @@ button.danger:not(:disabled):hover {
 }
 
 .user-menu {
-  margin-left: auto;
   position: relative;
 }
 
@@ -1468,6 +1474,12 @@ button.shift-chip {
     gap: var(--space-2);
   }
 
+  .header-brand,
+  .header-center,
+  .header-actions {
+    grid-column: 1;
+  }
+
   .header-center {
     justify-self: start;
   }
@@ -1476,6 +1488,12 @@ button.shift-chip {
     width: 100%;
     justify-self: start;
     align-items: flex-start;
+  }
+
+  .header-actions-auth {
+    justify-self: end;
+    justify-content: flex-end;
+    align-items: center;
   }
 
   .calendar-header-row {

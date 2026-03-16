@@ -739,6 +739,7 @@ export default function App() {
       updatingDepartmentEmployeeId
     ]
   );
+  const headerActionsClassName = `header-actions ${isSupabaseMode && session ? 'header-actions-auth' : ''}`;
 
   return (
     <div className={`app-shell ${showAuthPanel && !authLoading ? 'auth-view' : ''}`}>
@@ -759,7 +760,7 @@ export default function App() {
           </div>
         ) : null}
 
-        <div className="header-actions">
+        <div className={headerActionsClassName}>
           {!isSupabaseMode ? (
             <>
               <SegmentedToggle
