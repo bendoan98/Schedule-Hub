@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addWeeks, subWeeks } from 'date-fns';
 import NotificationBell from './features/notifications/NotificationBell';
 import SchedulePage from './pages/SchedulePage';
@@ -6,6 +6,7 @@ import ManagerPage from './features/manager/ManagerPage';
 import SegmentedToggle from './components/ui/SegmentedToggle';
 import AuthPanel from './features/auth/AuthPanel';
 import TeamSetupPanel from './features/auth/TeamSetupPanel';
+import useDismissibleLayer from './hooks/useDismissibleLayer';
 import {
   mockBoardPosts,
   mockEmployees,
@@ -31,6 +32,14 @@ const PAGE_TOGGLE_OPTIONS = PAGE_ROUTES.map((route) => ({ value: route.path, lab
 
 function normalizePathname(pathname) {
   return pathname === ROUTE_MANAGER ? ROUTE_MANAGER : ROUTE_SCHEDULE;
+}
+
+function formatRoleLabel(roleValue) {
+  if (!roleValue) {
+    return '';
+  }
+
+  return roleValue.charAt(0).toUpperCase() + roleValue.slice(1);
 }
 
 export default function App() {
@@ -64,6 +73,19 @@ export default function App() {
 
   const [authError, setAuthError] = useState('');
   const [, setAppMessage] = useState('');
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+
+  const closeUserMenu = useCallback(() => {
+    setIsUserMenuOpen(false);
+  }, []);
+
+  useDismissibleLayer({
+    isOpen: isUserMenuOpen,
+    containerRef: userMenuRef,
+    onDismiss: closeUserMenu,
+    closeOnEscape: true
+  });
 
   const currentUser = useMemo(() => {
     return employees.find((employee) => employee.id === currentEmployeeId) ?? null;
@@ -464,6 +486,8 @@ export default function App() {
       return;
     }
 
+    setIsUserMenuOpen(false);
+
     const { error } = await supabase.auth.signOut();
 
     if (error) {
@@ -533,6 +557,12 @@ export default function App() {
   const canViewManagerPage = role === 'manager';
   const isManagerRoute = currentPath === ROUTE_MANAGER;
   const isManagerPage = showCoreApp && canViewManagerPage && isManagerRoute;
+  const sessionDisplayName = currentUser?.name ?? session?.user?.email ?? 'Account';
+  const sessionDisplayRole = currentUser?.role ?? role;
+  const sessionDisplayRoleLabel = formatRoleLabel(sessionDisplayRole);
+  const sessionDisplayTeam = team?.name ?? 'Not assigned';
+  const sessionDisplayInviteCode = team?.inviteCode ?? 'Not available';
+  const sessionDisplayEmail = session?.user?.email ?? currentUser?.email ?? 'Not available';
   const currentBoardUser =
     currentUser ?? {
       id: currentEmployeeId,
@@ -713,9 +743,21 @@ export default function App() {
   return (
     <div className={`app-shell ${showAuthPanel && !authLoading ? 'auth-view' : ''}`}>
       <header className="app-header">
-        <div>
+        <div className="header-brand">
           <h1>Schedule Hub</h1>
         </div>
+
+        {showCoreApp && canViewManagerPage ? (
+          <div className="header-center">
+            <SegmentedToggle
+              className="role-toggle"
+              ariaLabel="Page toggle"
+              options={PAGE_TOGGLE_OPTIONS}
+              value={currentPath}
+              onChange={(path) => navigateTo(path)}
+            />
+          </div>
+        ) : null}
 
         <div className="header-actions">
           {!isSupabaseMode ? (
@@ -746,33 +788,87 @@ export default function App() {
             </>
           ) : null}
 
-          {isSupabaseMode && session ? (
-            <>
-              <div className="session-chip">
-                <strong>{currentUser?.name ?? session.user.email}</strong>
-                <small>{role}</small>
-              </div>
-
-              <button type="button" onClick={handleSignOut}>
-                Sign Out
-              </button>
-            </>
-          ) : null}
-
-          {showCoreApp ? (
-            canViewManagerPage ? (
-              <SegmentedToggle
-                className="role-toggle"
-                ariaLabel="Page toggle"
-                options={PAGE_TOGGLE_OPTIONS}
-                value={currentPath}
-                onChange={(path) => navigateTo(path)}
-              />
-            ) : null
-          ) : null}
-
           {showCoreApp ? (
             <NotificationBell notifications={notifications} onMarkAllRead={handleMarkAllRead} />
+          ) : null}
+
+          {isSupabaseMode && session ? (
+            <div className="user-menu" ref={userMenuRef}>
+              <button
+                type="button"
+                className="user-menu-trigger"
+                aria-label="Open account menu"
+                title={sessionDisplayName}
+                aria-expanded={isUserMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setIsUserMenuOpen((value) => !value)}
+              >
+                <svg
+                  className="user-menu-trigger-icon"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path
+                    d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 8v-1.2c0-3.1-2.5-5.6-5.6-5.6H10.6A5.6 5.6 0 0 0 5 18.8V20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+
+              {isUserMenuOpen ? (
+                <section className="user-menu-popover" aria-label="Account details">
+                  <div className="user-menu-row">
+                    <span className="user-menu-icon" aria-hidden="true">
+                      👥
+                    </span>
+                    <div>
+                      <small>Team</small>
+                      <strong>{sessionDisplayTeam}</strong>
+                    </div>
+                  </div>
+                  <div className="user-menu-row">
+                    <span className="user-menu-icon" aria-hidden="true">
+                      🛡️
+                    </span>
+                    <div>
+                      <small>Role</small>
+                      <strong>{sessionDisplayRoleLabel}</strong>
+                    </div>
+                  </div>
+                  {sessionDisplayRole === 'manager' ? (
+                    <div className="user-menu-row">
+                      <span className="user-menu-icon" aria-hidden="true">
+                        🔑
+                      </span>
+                      <div>
+                        <small>Invite Code</small>
+                        <strong>{sessionDisplayInviteCode}</strong>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="user-menu-row">
+                    <span className="user-menu-icon" aria-hidden="true">
+                      ✉️
+                    </span>
+                    <div>
+                      <small>Email</small>
+                      <strong>{sessionDisplayEmail}</strong>
+                    </div>
+                  </div>
+                  <button type="button" className="user-menu-signout" onClick={handleSignOut}>
+                    <span className="user-menu-icon" aria-hidden="true">
+                      ↪
+                    </span>
+                    <span>Sign Out</span>
+                  </button>
+                </section>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </header>

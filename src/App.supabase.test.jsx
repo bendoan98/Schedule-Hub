@@ -215,9 +215,9 @@ describe('App (Supabase mode)', () => {
       });
     });
 
-    expect(
-      screen.getByText(/sign-up successful\. confirm your email, then sign in to finish team setup\./i)
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Log In$/i })).toBeInTheDocument();
+    });
   });
 
   it('shows missing profile panel when auth user has no employee row', async () => {
@@ -310,10 +310,16 @@ describe('App (Supabase mode)', () => {
 
     render(<App />);
 
-    expect(await screen.findByRole('button', { name: /sign out/i })).toBeInTheDocument();
+    const accountMenuButton = await screen.findByRole('button', { name: /open account menu/i });
+    expect(accountMenuButton).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-stats')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /manager page/i })).toBeInTheDocument();
     expect(supabaseMock.channel).toHaveBeenCalled();
+
+    fireEvent.click(accountMenuButton);
+    expect(screen.getByLabelText(/account details/i)).toBeInTheDocument();
+    expect(screen.getByText('ABCD1234')).toBeInTheDocument();
+    expect(screen.getByText('manager@example.com')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /sign out/i }));
     await waitFor(() => {

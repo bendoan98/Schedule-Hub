@@ -152,11 +152,20 @@ button.danger:not(:disabled):hover {
 }
 
 .app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
   gap: 1rem;
-  flex-wrap: wrap;
+}
+
+.header-brand {
+  justify-self: start;
+}
+
+.header-center {
+  justify-self: center;
+  display: flex;
+  align-items: center;
 }
 
 .app-header h1 {
@@ -170,6 +179,7 @@ button.danger:not(:disabled):hover {
 
 .header-actions {
   display: flex;
+  justify-self: end;
   align-items: end;
   gap: 0.75rem;
   flex-wrap: wrap;
@@ -194,6 +204,80 @@ button.danger:not(:disabled):hover {
   color: var(--muted);
   text-transform: capitalize;
   font-size: var(--font-xs);
+}
+
+.user-menu {
+  margin-left: auto;
+  position: relative;
+}
+
+.user-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: clamp(2.2rem, 2rem + 0.8vw, 2.5rem);
+  min-height: clamp(2.2rem, 2rem + 0.8vw, 2.5rem);
+  padding: 0;
+  position: relative;
+}
+
+.user-menu-trigger-icon {
+  width: clamp(1rem, 0.92rem + 0.3vw, 1.2rem);
+  height: clamp(1rem, 0.92rem + 0.3vw, 1.2rem);
+}
+
+.user-menu-popover {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  width: min(340px, calc(100vw - 1.2rem));
+  background: var(--overlay-bg);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow);
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.4rem;
+  z-index: 32;
+}
+
+.user-menu-row {
+  display: grid;
+  grid-template-columns: 1.7rem 1fr;
+  gap: 0.5rem;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.user-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  min-height: 1.45rem;
+  color: var(--muted);
+}
+
+.user-menu-row small {
+  color: var(--muted);
+  font-size: var(--font-xs);
+}
+
+.user-menu-row strong {
+  display: block;
+  margin-top: 0.06rem;
+  font-size: var(--font-sm);
+  word-break: break-word;
+}
+
+.user-menu-signout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .role-toggle {
@@ -1379,8 +1463,18 @@ button.shift-chip {
 }
 
 @media (max-width: 1180px) {
+  .app-header {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .header-center {
+    justify-self: start;
+  }
+
   .header-actions {
     width: 100%;
+    justify-self: start;
     align-items: flex-start;
   }
 
