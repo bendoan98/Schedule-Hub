@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function MessageBoard({ posts, currentUser, role, onAddPost }) {
+export default function MessageBoard({ posts, currentUser, role, onAddPost, embedded = false }) {
   const [message, setMessage] = useState('');
   const [kind, setKind] = useState('announcement');
 
@@ -22,8 +22,8 @@ export default function MessageBoard({ posts, currentUser, role, onAddPost }) {
   }
 
   return (
-    <section className="panel board-panel">
-      <h3>Message Board</h3>
+    <section className={`board-panel ${embedded ? 'board-panel-embedded' : 'panel'}`}>
+      {!embedded ? <h3>Message Board</h3> : null}
 
       <form className="board-form" onSubmit={handleSubmit}>
         {role === 'manager' ? (

@@ -479,6 +479,88 @@ button.danger:not(:disabled):hover {
   gap: 0.7rem;
 }
 
+.chat-widget {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  display: grid;
+  justify-items: end;
+  gap: 0.6rem;
+  z-index: 65;
+}
+
+.chat-window {
+  width: min(420px, calc(100vw - 2rem));
+  max-height: min(72vh, 640px);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--overlay-bg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: grid;
+}
+
+.chat-window-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elevated) 78%, var(--overlay-bg));
+}
+
+.chat-window-header h4 {
+  font-size: 0.95rem;
+}
+
+.chat-window-header button {
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  border-radius: 0.55rem;
+}
+
+.chat-bubble-button {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--bg-elevated) 85%, var(--accent) 15%);
+  box-shadow: var(--shadow);
+}
+
+.chat-bubble-button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 24%, var(--bg-elevated));
+}
+
+.chat-bubble-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.board-panel-embedded {
+  padding: 0.75rem;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.chat-window .board-form {
+  margin-bottom: 0.5rem;
+}
+
+.chat-window .board-list {
+  max-height: 300px;
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
 .roster-list {
   display: grid;
   gap: 0.7rem;
@@ -1092,5 +1174,14 @@ button.danger:not(:disabled):hover {
   .department-rename-form {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .chat-widget {
+    right: 0.75rem;
+    bottom: 0.75rem;
+  }
+
+  .chat-window {
+    width: min(420px, calc(100vw - 1.5rem));
   }
 }

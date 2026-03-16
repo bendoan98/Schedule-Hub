@@ -4,7 +4,7 @@ import DashboardStats from './features/dashboard/DashboardStats';
 import WeeklyCalendar from './features/schedule/WeeklyCalendar';
 import ShiftEditorModal from './features/shifts/ShiftEditorModal';
 import NotificationBell from './features/notifications/NotificationBell';
-import MessageBoard from './features/board/MessageBoard';
+import ChatBubbleBoard from './features/board/ChatBubbleBoard';
 import ExportButtons from './features/export/ExportButtons';
 import ManagerPage from './features/manager/ManagerPage';
 import SwapRequestsPanel from './features/swaps/SwapRequestsPanel';
@@ -2001,7 +2001,7 @@ export default function App() {
           ) : null}
 
           {!isManagerPage ? (
-            <MessageBoard
+            <ChatBubbleBoard
               posts={postsWithAuthors}
               currentUser={
                 currentUser ?? {
