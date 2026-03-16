@@ -245,6 +245,9 @@ button.danger:not(:disabled):hover {
   display: grid;
   gap: 0.4rem;
   z-index: 32;
+  max-height: min(72vh, 34rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .user-menu-row {
@@ -1083,6 +1086,9 @@ button.shift-chip {
   box-shadow: var(--shadow);
   padding: 0.65rem;
   z-index: 30;
+  max-height: min(72vh, 34rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .export-popover {
@@ -1097,6 +1103,9 @@ button.shift-chip {
   box-shadow: var(--shadow);
   padding: 0.65rem;
   z-index: 30;
+  max-height: min(72vh, 34rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .export-popover .export-actions {
@@ -1106,6 +1115,11 @@ button.shift-chip {
 
 .export-option {
   position: relative;
+}
+
+.export-option > button {
+  width: 100%;
+  text-align: left;
 }
 
 .export-option-hint {
@@ -1143,6 +1157,10 @@ button.shift-chip {
   padding: 0;
   display: grid;
   gap: 0.5rem;
+  max-height: min(56vh, 24rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.15rem;
 }
 
 .notification-popover li {
@@ -1559,7 +1577,8 @@ button.shift-chip {
     pointer-events: auto;
   }
 
-  .notification-popover {
+  .notification-popover,
+  .user-menu-popover {
     width: min(360px, calc(100vw - 0.9rem));
   }
 }
@@ -1571,6 +1590,18 @@ button.shift-chip {
 
   .calendar-grid {
     grid-template-columns: 148px repeat(7, minmax(104px, 1fr));
+  }
+
+  .notification-popover,
+  .user-menu-popover,
+  .export-popover {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 4.1rem);
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+    max-width: none;
+    max-height: min(72vh, 32rem);
   }
 
   .panel,
@@ -1639,7 +1670,9 @@ button.shift-chip {
   }
 
   .notification-popover,
+  .user-menu-popover,
   .export-popover {
-    right: -0.2rem;
+    left: 0.4rem;
+    right: 0.4rem;
   }
 }
