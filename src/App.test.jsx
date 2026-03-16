@@ -161,7 +161,6 @@ describe('App', () => {
   it('handles local shift actions and notification updates', async () => {
     render(<App />);
 
-    expect(screen.getByText(/running with mock data/i)).toBeInTheDocument();
     expect(screen.getByTestId('unread-count')).toHaveTextContent('0');
 
     fireEvent.click(screen.getByRole('button', { name: /trigger add shift/i }));

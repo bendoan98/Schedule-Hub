@@ -4,7 +4,6 @@ import NotificationBell from './features/notifications/NotificationBell';
 import SchedulePage from './pages/SchedulePage';
 import ManagerPage from './features/manager/ManagerPage';
 import SegmentedToggle from './components/ui/SegmentedToggle';
-import StatusBanner from './components/ui/StatusBanner';
 import AuthPanel from './features/auth/AuthPanel';
 import TeamSetupPanel from './features/auth/TeamSetupPanel';
 import {
@@ -64,7 +63,7 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState(() => normalizePathname(window.location.pathname));
 
   const [authError, setAuthError] = useState('');
-  const [appMessage, setAppMessage] = useState('');
+  const [, setAppMessage] = useState('');
 
   const currentUser = useMemo(() => {
     return employees.find((employee) => employee.id === currentEmployeeId) ?? null;
@@ -716,21 +715,6 @@ export default function App() {
       <header className="app-header">
         <div>
           <h1>Schedule Hub</h1>
-
-          {!isSupabaseMode ? (
-            <StatusBanner>Running with mock data. Add `.env.local` values to connect Supabase.</StatusBanner>
-          ) : null}
-
-          {isSupabaseMode && session ? (
-            <StatusBanner>
-              Connected as {session.user.email}
-              {team?.name ? ` | Team: ${team.name}` : ''}
-              {team?.inviteCode && role === 'manager' ? ` | Invite Code: ${team.inviteCode}` : ''}
-            </StatusBanner>
-          ) : null}
-
-          {appMessage ? <StatusBanner>{appMessage}</StatusBanner> : null}
-          {dataLoading ? <StatusBanner>Syncing latest data...</StatusBanner> : null}
         </div>
 
         <div className="header-actions">
