@@ -4,9 +4,20 @@ export default function MessageBoard({ posts, currentUser, role, onAddPost, embe
   const [message, setMessage] = useState('');
   const [kind, setKind] = useState('comment');
   const streamRef = useRef(null);
+
   const sortedPosts = useMemo(() => {
     return [...posts].sort((left, right) => new Date(left.createdAt) - new Date(right.createdAt));
   }, [posts]);
+
+  const latestAnnouncement = useMemo(() => {
+    const announcements = sortedPosts.filter((post) => post.kind === 'announcement');
+    return announcements.length > 0 ? announcements[announcements.length - 1] : null;
+  }, [sortedPosts]);
+
+  const streamPosts = useMemo(
+    () => sortedPosts.filter((post) => post.kind !== 'announcement'),
+    [sortedPosts]
+  );
 
   useEffect(() => {
     if (!streamRef.current) {
@@ -14,7 +25,7 @@ export default function MessageBoard({ posts, currentUser, role, onAddPost, embe
     }
 
     streamRef.current.scrollTop = streamRef.current.scrollHeight;
-  }, [sortedPosts.length]);
+  }, [streamPosts.length]);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -46,29 +57,40 @@ export default function MessageBoard({ posts, currentUser, role, onAddPost, embe
     <section className={`board-panel ${embedded ? 'board-panel-embedded' : 'panel'}`}>
       {!embedded ? <h3>Message Board</h3> : null}
 
-      <div className="chat-stream" ref={streamRef}>
-        {sortedPosts.length === 0 ? <p className="chat-empty">No messages yet.</p> : null}
+      <div className="chat-content-stack">
+        {latestAnnouncement ? (
+          <section className="chat-pinned-announcement" aria-live="polite">
+            <small className="chat-pinned-label">Pinned Announcement</small>
+            <div className="chat-pinned-meta">
+              <strong>{latestAnnouncement.authorId === currentUser.id ? 'You' : latestAnnouncement.authorName}</strong>
+              <small>{new Date(latestAnnouncement.createdAt).toLocaleString()}</small>
+            </div>
+            <p>{latestAnnouncement.message}</p>
+          </section>
+        ) : null}
 
-        {sortedPosts.map((post) => {
-          const isSelf = post.authorId === currentUser.id;
-          const kindLabel = post.kind === 'announcement' ? 'Announcement' : 'Message';
+        <div className="chat-stream" ref={streamRef}>
+          {streamPosts.length === 0 ? <p className="chat-empty">No messages yet.</p> : null}
 
-          return (
-            <article
-              key={post.id}
-              className={`chat-message ${isSelf ? 'self' : 'other'} ${
-                post.kind === 'announcement' ? 'announcement' : 'comment'
-              }`}
-            >
-              <div className="chat-meta">
-                <strong>{isSelf ? 'You' : post.authorName}</strong>
-                <small>{new Date(post.createdAt).toLocaleString()}</small>
-              </div>
-              <p className="chat-bubble">{post.message}</p>
-              {post.kind === 'announcement' ? <small className="chat-kind-tag">{kindLabel}</small> : null}
-            </article>
-          );
-        })}
+          {streamPosts.map((post) => {
+            const isSelf = post.authorId === currentUser.id;
+
+            return (
+              <article
+                key={post.id}
+                className={`chat-message ${isSelf ? 'self' : 'other'} ${
+                  post.kind === 'announcement' ? 'announcement' : 'comment'
+                }`}
+              >
+                <div className="chat-meta">
+                  <strong>{isSelf ? 'You' : post.authorName}</strong>
+                  <small>{new Date(post.createdAt).toLocaleString()}</small>
+                </div>
+                <p className="chat-bubble">{post.message}</p>
+              </article>
+            );
+          })}
+        </div>
       </div>
 
       <form className="chat-composer" onSubmit={handleSubmit}>

@@ -636,7 +636,54 @@ button.shift-chip {
   gap: 0.6rem;
 }
 
+.chat-content-stack {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.chat-pinned-announcement {
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.62rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.chat-pinned-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.chat-pinned-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chat-pinned-meta strong {
+  font-size: 0.78rem;
+}
+
+.chat-pinned-meta small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.chat-pinned-announcement p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .chat-stream {
+  flex: 1 1 auto;
   min-height: 180px;
   max-height: 360px;
   overflow: auto;
@@ -696,15 +743,6 @@ button.shift-chip {
 .chat-message.self .chat-bubble {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
   background: color-mix(in srgb, var(--accent) 20%, var(--bg-elevated));
-}
-
-.chat-message.announcement .chat-bubble {
-  border-style: dashed;
-}
-
-.chat-kind-tag {
-  color: var(--muted);
-  font-size: 0.68rem;
 }
 
 .chat-composer {
