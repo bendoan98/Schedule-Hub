@@ -315,6 +315,41 @@ button.danger:not(:disabled):hover {
   color: var(--muted);
 }
 
+.manager-page-tab-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.manager-page-tab-nav {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.manager-page-tab-button {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.72rem 0.8rem;
+}
+
+.manager-page-tab-button small {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.manager-page-tab-button.active {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-elevated));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.manager-page-tab-content {
+  min-width: 0;
+}
+
 .manager-page-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1247,6 +1282,10 @@ button.shift-chip {
 }
 
 @media (max-width: 1150px) {
+  .manager-page-tab-layout {
+    grid-template-columns: 1fr;
+  }
+
   .manager-page-grid-top,
   .manager-page-team-row {
     grid-template-columns: 1fr;
