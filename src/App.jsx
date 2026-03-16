@@ -745,7 +745,10 @@ export default function App() {
     <div className={`app-shell ${showAuthPanel && !authLoading ? 'auth-view' : ''}`}>
       <header className="app-header">
         <div className="header-brand">
-          <h1>Schedule Hub</h1>
+          <div className="brand-lockup">
+            <img src="/logo.svg" alt="Schedule Hub logo" className="brand-logo" />
+            <h1>Schedule Hub</h1>
+          </div>
         </div>
 
         {showCoreApp && canViewManagerPage ? (
